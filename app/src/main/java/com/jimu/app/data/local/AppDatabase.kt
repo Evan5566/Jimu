@@ -20,7 +20,7 @@ import com.jimu.app.data.local.entity.TaskEntity
         GoalStepEntity::class
     ],
     version = 4,
-    exportSchema = false
+    exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun taskDao(): TaskDao

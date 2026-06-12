@@ -29,7 +29,6 @@ class JimuApp : Application() {
             AppDatabase::class.java,
             "jimu_database"
         )
-            .fallbackToDestructiveMigration()
             .build()
 
         taskRepository = TaskRepository(database.taskDao())

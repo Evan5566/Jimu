@@ -182,3 +182,62 @@ ad741b6 feat: support undoing habit check-ins
 
 - 本次没有执行模拟器手测；建议手动验证“打卡 → 取消 → 再打卡”的可逆流程，以及杀掉 App 重开后的持久化状态。
 - 当前 `insertHabitRecord` 使用 `OnConflictStrategy.REPLACE`，但主键是 autoGenerate 的 `id`，不会按 `habitId + recordDate` 业务键天然去重；本次只通过取消时删除所有匹配记录清理同日重复脏数据，不顺手修改插入防重策略。
+
+## 2026-06-13 - T4 Room 数据安全最小整改
+
+### 任务范围
+
+只执行 T4：建立 Room schema 基线并停用破坏性删库。保持数据库版本为 4，不改 Entity / DAO / Repository 业务逻辑，不改 Room 表结构，不写 migration，不升级 Gradle / AGP / Kotlin / KSP / Compose / Room 版本，不处理历史脏数据，不做 T5。
+
+### 修改文件
+
+- `app/src/main/java/com/jimu/app/data/local/AppDatabase.kt`
+- `app/src/main/java/com/jimu/app/JimuApp.kt`
+- `app/build.gradle.kts`
+- `DEV_LOG.md`
+- `app/schemas/com.jimu.app.data.local.AppDatabase/4.json`
+
+### 修改内容
+
+- 将 `AppDatabase` 的 `exportSchema` 从 `false` 改为 `true`。
+- 保持 `AppDatabase` 的 `version = 4`，实体列表不变。
+- 移除 `Room.databaseBuilder` 中的破坏性迁移 fallback 调用，不替换为任何 fallback。
+- 在 `app/build.gradle.kts` 中增加 Room KSP schema 输出路径：`room.schemaLocation = $projectDir/schemas`。
+- 生成并纳入当前 version 4 的 Room schema JSON。
+
+### 本次明确不处理的后续待办
+
+- `habit_records(habitId, recordDate)` 唯一约束。
+- 子表外键。
+- 索引。
+- 删除习惯/目标的显式事务。
+- `insertHabitRecord` 的 `REPLACE + autoGenerate` 去重问题。
+- 历史脏数据清理。
+
+### 验证结果
+
+本次在当前 PowerShell 命令中临时设置了 `JAVA_HOME` 指向本机 JDK 21，没有修改项目配置。
+
+构建命令：
+
+```powershell
+.\gradlew.bat assembleDebug
+```
+
+构建结果：
+
+```text
+BUILD SUCCESSFUL in 24s
+```
+
+schema 输出路径：
+
+```text
+F:\jimuapp\app\schemas\com.jimu.app.data.local.AppDatabase\4.json
+```
+
+核查结果：
+
+- `app/schemas/com.jimu.app.data.local.AppDatabase/4.json` 已生成，且未被 `.gitignore` 忽略。
+- 源码中未发现破坏性迁移 fallback 调用。
+- `AppDatabase` 仍保持 `version = 4`。
