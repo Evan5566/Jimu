@@ -50,7 +50,7 @@ C:\Users\Evan\.jdks\zulu21.50.19-ca-jdk21.0.11-win_x64\zulu21.50.19-ca-jdk21.0.1
 最近一次构建结果：
 
 ```text
-BUILD SUCCESSFUL in 37s
+assembleDebug 退出码 0
 ```
 
 APK 输出路径：
@@ -63,12 +63,14 @@ F:\jimuapp\app\build\outputs\apk\debug\app-debug.apk
 
 - `app/src/main/java/com/jimu/app/ui/home/HomeScreen.kt` 中 `VoiceInputSheet(` 当前只剩 1 处调用。
 - T1 已完成：首页重复语音弹窗调用已清理。
-- 仍未执行 T2 及之后任务。
+- T2 已完成：目标语音新增已改为独立 `GoalDraft` / `GoalReview`。
+- 目标语音新增不再复用 `HabitDraft` / `HabitReview`。
+- T2 commit：`36de302`。
+- 当前下一步：T3，习惯支持取消今日打卡。
 
 ## 当前已知风险
 
 - Room 当前仍需做数据安全整改，后续应处理 schema 导出和 migration。
 - 复盘功能尚未实现。
-- 目标语音状态仍待后续 T2 独立处理。
 - 习惯取消今日打卡仍待后续 T3 独立处理。
 - 核心逻辑测试仍待后续 T9 补齐。
