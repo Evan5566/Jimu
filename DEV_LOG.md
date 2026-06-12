@@ -172,6 +172,12 @@ F:\jimuapp\app\build\outputs\apk\debug\app-debug.apk
 BUILD SUCCESSFUL in 30s
 ```
 
+提交记录：
+
+```text
+ad741b6 feat: support undoing habit check-ins
+```
+
 ### 备注
 
 - 本次没有执行模拟器手测；建议手动验证“打卡 → 取消 → 再打卡”的可逆流程，以及杀掉 App 重开后的持久化状态。
