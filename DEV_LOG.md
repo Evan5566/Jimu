@@ -78,3 +78,56 @@ C:\Users\Evan\.jdks\zulu21.50.19-ca-jdk21.0.11-win_x64\zulu21.50.19-ca-jdk21.0.1
 ### 备注
 
 这次只完成 T1。没有处理目标语音状态、习惯取消打卡、复盘、Room migration、已完成并入待办等后续任务。
+
+## 2026-06-12 - T2 目标语音使用独立状态
+
+### 任务范围
+
+只执行 T2：让“语音新增目标”使用独立的 `GoalReview` / `GoalDraft`，不再复用 `HabitReview` / `HabitDraft`。不做 T3，不做 T4，不改数据库，不改 Gradle 配置，不引入新框架。
+
+### 修改文件
+
+- `app/src/main/java/com/jimu/app/voice/VoiceInputState.kt`
+- `app/src/main/java/com/jimu/app/viewmodel/VoiceInputViewModel.kt`
+- `app/src/main/java/com/jimu/app/voice/VoiceInputSheet.kt`
+- `DEV_LOG.md`
+
+### 修改内容
+
+- 在 `VoiceInputState.kt` 新增 `GoalDraft` 和 `VoiceInputState.GoalReview`。
+- 在 `VoiceInputViewModel.kt` 中把 `VoiceInputTarget.GOAL` 分支改为产出 `GoalReview(goalDraft = GoalDraft(...))`。
+- 保留 `extractGoalTitle` 和 `normalizeGoalPeriodWords` 原有逻辑，没有修改目标标题清洗规则。
+- 在 `VoiceInputSheet.kt` 中新增 `GoalReview` 状态分支和独立的 `GoalReviewContent`。
+- 移除 `HabitReviewContent` 里的 `isGoal` 分叉，让它只服务习惯确认页。
+- 目标确认页仍保持原有视觉和交互：显示“确认目标”、只编辑目标名称、按钮为“添加目标”。
+- 习惯确认页仍显示“确认习惯”、保留备注框、按钮为“添加习惯”。
+
+### 验证结果
+
+源码检查：
+
+- `VoiceInputTarget.GOAL` 分支现在产出 `VoiceInputState.GoalReview`。
+- `HabitReview` / `HabitDraft` 当前只保留在习惯流程中。
+- 全局搜索未发现 `isGoal` 分叉残留。
+
+构建命令：
+
+```powershell
+.\gradlew.bat assembleDebug
+```
+
+构建结果：
+
+```text
+命令退出码：0
+```
+
+APK 输出路径：
+
+```text
+F:\jimuapp\app\build\outputs\apk\debug\app-debug.apk
+```
+
+### 备注
+
+本次没有执行模拟器手测；建议后续在 Android Studio 中分别验证待办、习惯、目标三条语音新增流程，以及目标语音下的重新识别、取消和错误提示。

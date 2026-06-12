@@ -144,11 +144,18 @@ fun VoiceInputSheet(
 
                 is VoiceInputState.HabitReview -> {
                     HabitReviewContent(
-                        target = target,
                         transcript = state.transcript,
                         habitDraft = state.habitDraft,
                         onRetry = onRetry,
-                        onConfirmAddHabit = onConfirmAddHabit,
+                        onConfirmAddHabit = onConfirmAddHabit
+                    )
+                }
+
+                is VoiceInputState.GoalReview -> {
+                    GoalReviewContent(
+                        transcript = state.transcript,
+                        goalDraft = state.goalDraft,
+                        onRetry = onRetry,
                         onConfirmAddGoal = onConfirmAddGoal
                     )
                 }
@@ -409,17 +416,13 @@ private fun TaskReviewContent(
 
 @Composable
 private fun HabitReviewContent(
-    target: VoiceInputTarget,
     transcript: String,
     habitDraft: HabitDraft,
     onRetry: () -> Unit,
-    onConfirmAddHabit: (String, String) -> Unit,
-    onConfirmAddGoal: (String) -> Unit
+    onConfirmAddHabit: (String, String) -> Unit
 ) {
     var title by remember(habitDraft) { mutableStateOf(habitDraft.title) }
     var description by remember(habitDraft) { mutableStateOf(habitDraft.description) }
-
-    val isGoal = target == VoiceInputTarget.GOAL
 
     SectionLabel("识别文本")
     Spacer(modifier = Modifier.height(10.dp))
@@ -427,7 +430,7 @@ private fun HabitReviewContent(
 
     Spacer(modifier = Modifier.height(18.dp))
 
-    SectionLabel(if (isGoal) "确认目标" else "确认习惯")
+    SectionLabel("确认习惯")
     Spacer(modifier = Modifier.height(10.dp))
 
     Card(
@@ -443,22 +446,20 @@ private fun HabitReviewContent(
                 onValueChange = { title = it },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                label = { Text(if (isGoal) "目标名称" else "习惯名称") }
+                label = { Text("习惯名称") }
             )
 
-            if (!isGoal) {
-                Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-                OutlinedTextField(
-                    value = description,
-                    onValueChange = { description = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    minLines = 2,
-                    maxLines = 3,
-                    label = { Text("备注（可选）") },
-                    placeholder = { Text("例如：每天至少喝 2L 水") }
-                )
-            }
+            OutlinedTextField(
+                value = description,
+                onValueChange = { description = it },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 2,
+                maxLines = 3,
+                label = { Text("备注（可选）") },
+                placeholder = { Text("例如：每天至少喝 2L 水") }
+            )
         }
     }
 
@@ -477,16 +478,71 @@ private fun HabitReviewContent(
 
         Button(
             onClick = {
-                if (isGoal) {
-                    onConfirmAddGoal(title)
-                } else {
-                    onConfirmAddHabit(title, description)
-                }
+                onConfirmAddHabit(title, description)
             },
             modifier = Modifier.weight(1f),
             enabled = title.trim().isNotBlank()
         ) {
-            Text(if (isGoal) "添加目标" else "添加习惯")
+            Text("添加习惯")
+        }
+    }
+}
+
+@Composable
+private fun GoalReviewContent(
+    transcript: String,
+    goalDraft: GoalDraft,
+    onRetry: () -> Unit,
+    onConfirmAddGoal: (String) -> Unit
+) {
+    var title by remember(goalDraft) { mutableStateOf(goalDraft.title) }
+
+    SectionLabel("识别文本")
+    Spacer(modifier = Modifier.height(10.dp))
+    TranscriptCard(transcript)
+
+    Spacer(modifier = Modifier.height(18.dp))
+
+    SectionLabel("确认目标")
+    Spacer(modifier = Modifier.height(10.dp))
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            OutlinedTextField(
+                value = title,
+                onValueChange = { title = it },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                label = { Text("目标名称") }
+            )
+        }
+    }
+
+    Spacer(modifier = Modifier.height(12.dp))
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        OutlinedButton(
+            onClick = onRetry,
+            modifier = Modifier.weight(1f)
+        ) {
+            Text("重新识别")
+        }
+
+        Button(
+            onClick = { onConfirmAddGoal(title) },
+            modifier = Modifier.weight(1f),
+            enabled = title.trim().isNotBlank()
+        ) {
+            Text("添加目标")
         }
     }
 }

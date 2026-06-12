@@ -11,6 +11,10 @@ data class HabitDraft(
     val description: String = ""
 )
 
+data class GoalDraft(
+    val title: String
+)
+
 sealed interface VoiceInputState {
     data object Idle : VoiceInputState
 
@@ -30,6 +34,11 @@ sealed interface VoiceInputState {
     data class HabitReview(
         val transcript: String,
         val habitDraft: HabitDraft
+    ) : VoiceInputState
+
+    data class GoalReview(
+        val transcript: String,
+        val goalDraft: GoalDraft
     ) : VoiceInputState
 
     data class Error(

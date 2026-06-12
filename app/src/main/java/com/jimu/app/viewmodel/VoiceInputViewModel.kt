@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.jimu.app.data.repository.GoalRepository
 import com.jimu.app.data.repository.HabitRepository
 import com.jimu.app.data.repository.TaskRepository
+import com.jimu.app.voice.GoalDraft
 import com.jimu.app.voice.HabitDraft
 import com.jimu.app.voice.SpeechToTextRepository
 import com.jimu.app.voice.TaskDraft
@@ -168,11 +169,10 @@ class VoiceInputViewModel(
                         if (title.isBlank()) {
                             _state.value = VoiceInputState.Error("没有提取到有效的目标名称")
                         } else {
-                            _state.value = VoiceInputState.HabitReview(
+                            _state.value = VoiceInputState.GoalReview(
                                 transcript = finalText,
-                                habitDraft = HabitDraft(
-                                    title = title,
-                                    description = ""
+                                goalDraft = GoalDraft(
+                                    title = title
                                 )
                             )
                         }
