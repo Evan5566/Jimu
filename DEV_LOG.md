@@ -258,3 +258,88 @@ F:\jimuapp\app\schemas\com.jimu.app.data.local.AppDatabase\4.json
 ### 下一步
 
 T5：由 Opus 4.8 决策复盘 MVP / 数据层下一步。本次不执行 T5。
+
+## 2026-06-13 - T5 复盘数据层与 Room 4 到 5 迁移
+
+### 任务范围
+
+只执行 T5：新增复盘数据层 `ReviewEntity` / `ReviewDao` / `ReviewRepository`，并完成 Room 数据库从 version 4 到 version 5 的第一次正式迁移。
+
+本次不写 ViewModel，不写 Screen，不加路由，不加底部 tab，不加首页入口。复盘界面与入口留给 T6 / T7。
+
+本次 migration 只创建 `daily_reviews` 表，不修改现有 `tasks`、`habits`、`habit_records`、`goals`、`goal_steps` 五张表，不补唯一约束、外键、索引或历史脏数据清理。
+
+### 修改文件
+
+- `app/src/main/java/com/jimu/app/data/local/entity/ReviewEntity.kt`
+- `app/src/main/java/com/jimu/app/data/local/dao/ReviewDao.kt`
+- `app/src/main/java/com/jimu/app/data/repository/ReviewRepository.kt`
+- `app/src/main/java/com/jimu/app/data/local/AppDatabase.kt`
+- `app/src/main/java/com/jimu/app/JimuApp.kt`
+- `app/src/test/java/com/jimu/app/data/repository/ReviewRepositoryTest.kt`
+- `app/schemas/com.jimu.app.data.local.AppDatabase/5.json`
+- `DEV_LOG.md`
+
+### 修改内容
+
+- 新增 `daily_reviews` 表对应的 `ReviewEntity`，字段包括 `reviewDate`、`type`、`summary`、`problems`、`tomorrowFocus`、`mood`、`completedTaskSnapshot`、`checkedHabitSnapshot`、`createdAt`、`updatedAt`。
+- `reviewDate` 使用 `String`，口径对齐 `habit_records.recordDate` 的 `LocalDate.now().toString()`。
+- `type` 默认值为 `"daily"`，只为后续 weekly 预留字段，本次不实现 weekly 逻辑。
+- 新增 `ReviewDao`，支持插入、更新、删除、按 `reviewDate` 查询单条 daily 复盘，以及按 `reviewDate DESC, updatedAt DESC` 观察全部复盘。
+- 新增 `ReviewRepository`，封装复盘增删改查，并提供 `saveTodayReview` / `saveDailyReview`。
+- `saveDailyReview` 会先按 `reviewDate` 查询已有 daily 复盘；存在则更新，不存在则插入，用 Repository 层逻辑避免一天多条复盘。
+- `AppDatabase` 从 `version = 4` 升为 `version = 5`，加入 `ReviewEntity` 和 `reviewDao()`，`exportSchema` 保持 `true`。
+- 新增 `MIGRATION_4_5`，只执行 `CREATE TABLE IF NOT EXISTS daily_reviews (...)`。
+- `JimuApp` 在 `Room.databaseBuilder` 上注册 `.addMigrations(MIGRATION_4_5)`，并暴露 `reviewRepository`。
+- 生成 Room version 5 schema：`app/schemas/com.jimu.app.data.local.AppDatabase/5.json`。
+
+### 测试与验证
+
+先写 `ReviewRepositoryTest` 后运行：
+
+```powershell
+.\gradlew.bat testDebugUnitTest --tests com.jimu.app.data.repository.ReviewRepositoryTest
+```
+
+预期失败结果：
+
+```text
+Unresolved reference: ReviewDao
+Unresolved reference: ReviewEntity
+Unresolved reference: ReviewRepository
+```
+
+实现复盘数据层后运行完整本地单元测试：
+
+```powershell
+.\gradlew.bat testDebugUnitTest
+```
+
+结果：
+
+```text
+BUILD SUCCESSFUL in 10s
+```
+
+运行 Debug 构建：
+
+```powershell
+.\gradlew.bat assembleDebug
+```
+
+结果：
+
+```text
+BUILD SUCCESSFUL in 13s
+```
+
+核查结果：
+
+- `app/schemas/com.jimu.app.data.local.AppDatabase/5.json` 已生成。
+- `5.json` 中包含 `daily_reviews` 表。
+- `daily_reviews` 的 `indices` 和 `foreignKeys` 均为空，符合本次不处理旧数据层债务的边界。
+- `daily_reviews` 的字段类型与 `MIGRATION_4_5` 中的 `CREATE TABLE` 保持一致。
+
+### 未执行的验证
+
+本轮未执行设备或模拟器上的 v4 旧库覆盖安装回归；当前 PowerShell 中 `adb` 不在 PATH。后续应在 Android Studio 或真实设备上执行：先安装 T4 状态 APK 并写入待办、习惯、目标数据，再覆盖安装 T5 新 APK，确认 App 启动不崩且旧数据保留。
