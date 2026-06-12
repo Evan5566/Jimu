@@ -50,7 +50,7 @@ C:\Users\Evan\.jdks\zulu21.50.19-ca-jdk21.0.11-win_x64\zulu21.50.19-ca-jdk21.0.1
 最近一次构建结果：
 
 ```text
-BUILD SUCCESSFUL in 30s
+BUILD SUCCESSFUL in 24s
 ```
 
 APK 输出路径：
@@ -69,10 +69,28 @@ F:\jimuapp\app\build\outputs\apk\debug\app-debug.apk
 - T3 已完成：习惯支持取消今日打卡。
 - T3 commit：`ad741b6`。
 - T3 验证：`assembleDebug` 已通过。
-- 当前下一步：T4，Room 数据安全最小整改。
+- T4 已完成：Room 数据安全最小整改。
+- T4 commit：`0b85988`。
+- T4 已建立 Room version 4 schema 基线：`app/schemas/com.jimu.app.data.local.AppDatabase/4.json`。
+- `AppDatabase` 当前仍为 `version = 4`，并已设置 `exportSchema = true`。
+- 已移除 Room 破坏性迁移 fallback。
+- T4 验证：`assembleDebug` 已通过。
+- 当前下一步：T5，由 Opus 4.8 决策复盘 MVP / 数据层下一步。
+
+## 当前数据库安全状态
+
+- 已有 Room version 4 schema 基线。
+- 未来数据库结构变更必须写 migration。
+- 当前未做 `habit_records(habitId, recordDate)` 唯一约束。
+- 当前未做子表外键。
+- 当前未做索引。
+- 当前未做删除习惯/目标的显式事务。
+- 当前未处理 `insertHabitRecord` 的 `REPLACE + autoGenerate` 去重问题。
+- 当前未做历史脏数据清理。
 
 ## 当前已知风险
 
-- Room 当前仍需做数据安全整改，后续应处理 schema 导出和 migration。
+- Room 已完成 schema 基线和破坏性迁移 fallback 移除；后续数据库结构变更必须写 migration。
+- 数据层仍有唯一约束、外键、索引、显式事务和历史脏数据清理等后续安全债。
 - 复盘功能尚未实现。
 - 核心逻辑测试仍待后续 T9 补齐。

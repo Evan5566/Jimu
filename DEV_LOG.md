@@ -205,6 +205,13 @@ ad741b6 feat: support undoing habit check-ins
 - 在 `app/build.gradle.kts` 中增加 Room KSP schema 输出路径：`room.schemaLocation = $projectDir/schemas`。
 - 生成并纳入当前 version 4 的 Room schema JSON。
 
+### 当前数据库安全状态
+
+- 已有 Room version 4 schema 基线。
+- 未来数据库结构变更必须写 migration。
+- 破坏性迁移 fallback 已移除。
+- 本次未做唯一约束、外键、索引、删除习惯/目标的显式事务、`insertHabitRecord` 去重修正和历史脏数据清理。
+
 ### 本次明确不处理的后续待办
 
 - `habit_records(habitId, recordDate)` 唯一约束。
@@ -241,3 +248,13 @@ F:\jimuapp\app\schemas\com.jimu.app.data.local.AppDatabase\4.json
 - `app/schemas/com.jimu.app.data.local.AppDatabase/4.json` 已生成，且未被 `.gitignore` 忽略。
 - 源码中未发现破坏性迁移 fallback 调用。
 - `AppDatabase` 仍保持 `version = 4`。
+
+提交记录：
+
+```text
+0b85988 chore: add Room schema baseline
+```
+
+### 下一步
+
+T5：由 Opus 4.8 决策复盘 MVP / 数据层下一步。本次不执行 T5。

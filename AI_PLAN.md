@@ -28,6 +28,7 @@
 - 目标支持新增、编辑、删除、步骤管理和进度统计。
 - 已完成页支持查看完成记录和回退待办状态。
 - 首页有语音新增入口。
+- Room 已建立 version 4 schema 基线，后续数据库结构变更必须写 migration。
 
 ## 近期路线
 
@@ -43,7 +44,14 @@
   - AGP 升级会牵涉 Kotlin / KSP / Compose compiler / plugin 迁移。
   - 不应在 T3 / T4 之前引入构建工具链风险。
 - T3：已完成 - 习惯支持取消今日打卡，commit `ad741b6`，`assembleDebug` 已通过。
-- T4：下一步 - Room 数据安全最小整改。
+- T4：已完成 - Room 数据安全最小整改，commit `0b85988`，已建立 Room version 4 schema 基线，`exportSchema = true`，已移除破坏性迁移 fallback，`assembleDebug` 已通过。
+- T5：下一步 - 由 Opus 4.8 决策复盘 MVP / 数据层下一步。
+
+T4 后当前数据库安全状态：
+
+- 已有 Room version 4 schema 基线。
+- 未来数据库结构变更必须写 migration，不再依赖破坏性删库。
+- 暂未处理 `habit_records(habitId, recordDate)` 唯一约束、子表外键、索引、删除习惯/目标的显式事务、`insertHabitRecord` 去重问题和历史脏数据清理。
 
 ### 2. 做复盘最小版本
 
@@ -89,7 +97,7 @@
 
 优先顺序：
 
-1. T4：Room 数据安全最小整改。
+1. T5：由 Opus 4.8 决策复盘 MVP / 数据层下一步。
 2. MVP 稳定后：单独处理 AGP / Kotlin / KSP / Compose 构建工具链升级。
 
-这样推进的好处是：T1/T2/T3 已经收口，接下来进入会影响长期数据安全的 Room 整改；构建工具链升级暂时不插队，避免在 T4 之前引入额外风险。
+这样推进的好处是：T1/T2/T3/T4 已经收口，Room 已有 schema 基线；下一步先由 Opus 4.8 判断是推进复盘 MVP，还是继续补数据层安全债。构建工具链升级暂时不插队，避免把工具链风险混入产品能力或数据安全整改。
