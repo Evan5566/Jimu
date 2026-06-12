@@ -185,6 +185,12 @@ class HabitsViewModel(
         }
     }
 
+    fun uncheckInToday(habit: HabitEntity) {
+        viewModelScope.launch {
+            repository.uncheckInToday(habit)
+        }
+    }
+
     fun deleteHabit(habit: HabitEntity) {
         viewModelScope.launch {
             repository.deleteHabit(habit)

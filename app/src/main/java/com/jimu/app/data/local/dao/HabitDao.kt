@@ -34,6 +34,9 @@ interface HabitDao {
     @Query("DELETE FROM habit_records WHERE habitId = :habitId")
     suspend fun deleteHabitRecordsByHabitId(habitId: Long)
 
+    @Query("DELETE FROM habit_records WHERE habitId = :habitId AND recordDate = :recordDate")
+    suspend fun deleteHabitRecordsByDate(habitId: Long, recordDate: String)
+
     @Query("SELECT COUNT(*) FROM habit_records WHERE habitId = :habitId AND recordDate = :recordDate")
     suspend fun countHabitRecordByDate(habitId: Long, recordDate: String): Int
 }

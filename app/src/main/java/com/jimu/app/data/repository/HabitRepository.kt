@@ -100,6 +100,11 @@ class HabitRepository(
         )
     }
 
+    suspend fun uncheckInToday(habit: HabitEntity) {
+        val today = LocalDate.now().toString()
+        habitDao.deleteHabitRecordsByDate(habit.id, today)
+    }
+
     suspend fun deleteHabit(habit: HabitEntity) {
         habitDao.deleteHabitRecordsByHabitId(habit.id)
         habitDao.deleteHabit(habit)

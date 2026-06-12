@@ -158,6 +158,7 @@ fun HabitsScreen(innerPadding: PaddingValues) {
                                         HabitItem(
                                             habitUi = habitUi,
                                             onCheckIn = { viewModel.checkInToday(habitUi.habit) },
+                                            onUncheckIn = { viewModel.uncheckInToday(habitUi.habit) },
                                             onEdit = { viewModel.openEditDialog(habitUi.habit) },
                                             onDelete = { viewModel.deleteHabit(habitUi.habit) }
                                         )
@@ -175,6 +176,7 @@ fun HabitsScreen(innerPadding: PaddingValues) {
                                         HabitItem(
                                             habitUi = habitUi,
                                             onCheckIn = { viewModel.checkInToday(habitUi.habit) },
+                                            onUncheckIn = { viewModel.uncheckInToday(habitUi.habit) },
                                             onEdit = { viewModel.openEditDialog(habitUi.habit) },
                                             onDelete = { viewModel.deleteHabit(habitUi.habit) }
                                         )
@@ -206,6 +208,7 @@ fun HabitsScreen(innerPadding: PaddingValues) {
                                     HabitItem(
                                         habitUi = habitUi,
                                         onCheckIn = { viewModel.checkInToday(habitUi.habit) },
+                                        onUncheckIn = { viewModel.uncheckInToday(habitUi.habit) },
                                         onEdit = { viewModel.openEditDialog(habitUi.habit) },
                                         onDelete = { viewModel.deleteHabit(habitUi.habit) }
                                     )
@@ -488,6 +491,7 @@ private fun SmallTipCard(text: String) {
 private fun HabitItem(
     habitUi: HabitUiModel,
     onCheckIn: () -> Unit,
+    onUncheckIn: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -505,8 +509,7 @@ private fun HabitItem(
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             IconButton(
-                onClick = onCheckIn,
-                enabled = !habitUi.checkedToday,
+                onClick = if (habitUi.checkedToday) onUncheckIn else onCheckIn,
                 modifier = Modifier.padding(top = 2.dp)
             ) {
                 Icon(
@@ -515,7 +518,7 @@ private fun HabitItem(
                     } else {
                         Icons.Outlined.RadioButtonUnchecked
                     },
-                    contentDescription = if (habitUi.checkedToday) "今天已打卡" else "今日打卡",
+                    contentDescription = if (habitUi.checkedToday) "取消今日打卡" else "今日打卡",
                     tint = if (habitUi.checkedToday) {
                         MaterialTheme.colorScheme.primary
                     } else {

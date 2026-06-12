@@ -131,3 +131,48 @@ F:\jimuapp\app\build\outputs\apk\debug\app-debug.apk
 ### 备注
 
 本次没有执行模拟器手测；建议后续在 Android Studio 中分别验证待办、习惯、目标三条语音新增流程，以及目标语音下的重新识别、取消和错误提示。
+
+## 2026-06-12 - T3 习惯支持取消今日打卡
+
+### 任务范围
+
+只执行 T3：让已打卡习惯可以取消今日打卡。不做 T4，不改 Room schema，不改 database version，不写 migration，不改 Gradle 配置，不引入新框架，不改变 `calculateStreak` 算法和连续打卡语义。
+
+### 修改文件
+
+- `app/src/main/java/com/jimu/app/data/local/dao/HabitDao.kt`
+- `app/src/main/java/com/jimu/app/data/repository/HabitRepository.kt`
+- `app/src/main/java/com/jimu/app/viewmodel/HabitsViewModel.kt`
+- `app/src/main/java/com/jimu/app/ui/habits/HabitsScreen.kt`
+- `DEV_LOG.md`
+
+### 修改内容
+
+- 在 `HabitDao` 新增按 `habitId + recordDate` 删除打卡记录的方法。
+- 删除逻辑会删除同一习惯同一天的所有匹配记录，用于确保历史重复记录脏数据也能被一次取消干净。
+- 在 `HabitRepository` 新增 `uncheckInToday(habit)`，使用与 `checkInToday` 相同的 `LocalDate.now().toString()` 日期口径。
+- 保留 `checkInToday` 原有手动 count 防重逻辑，没有修改打卡插入路径。
+- 在 `HabitsViewModel` 新增 `uncheckInToday(habit)`，与现有 `checkInToday(habit)` 对称。
+- 在 `HabitsScreen` 中解除已打卡按钮的 disabled 状态；未打卡时点击仍打卡，已打卡时点击取消今日打卡。
+- 已打卡按钮的 `contentDescription` 改为“取消今日打卡”，图标仍保持已打卡和未打卡两种状态区分。
+
+### 验证结果
+
+构建命令：
+
+```powershell
+.\gradlew.bat assembleDebug
+```
+
+本次在当前 PowerShell 命令中临时设置了 `JAVA_HOME` 指向本机 JDK 21，没有修改项目配置。
+
+构建结果：
+
+```text
+BUILD SUCCESSFUL in 30s
+```
+
+### 备注
+
+- 本次没有执行模拟器手测；建议手动验证“打卡 → 取消 → 再打卡”的可逆流程，以及杀掉 App 重开后的持久化状态。
+- 当前 `insertHabitRecord` 使用 `OnConflictStrategy.REPLACE`，但主键是 autoGenerate 的 `id`，不会按 `habitId + recordDate` 业务键天然去重；本次只通过取消时删除所有匹配记录清理同日重复脏数据，不顺手修改插入防重策略。
