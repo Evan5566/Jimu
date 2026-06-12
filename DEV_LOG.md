@@ -340,6 +340,22 @@ BUILD SUCCESSFUL in 13s
 - `daily_reviews` 的 `indices` 和 `foreignKeys` 均为空，符合本次不处理旧数据层债务的边界。
 - `daily_reviews` 的字段类型与 `MIGRATION_4_5` 中的 `CREATE TABLE` 保持一致。
 
+提交记录：
+
+```text
+3b26779 feat: add daily review data layer
+```
+
+推送状态：
+
+```text
+已推送到 origin/main
+```
+
 ### 未执行的验证
 
 本轮未执行设备或模拟器上的 v4 旧库覆盖安装回归；当前 PowerShell 中 `adb` 不在 PATH。后续应在 Android Studio 或真实设备上执行：先安装 T4 状态 APK 并写入待办、习惯、目标数据，再覆盖安装 T5 新 APK，确认 App 启动不崩且旧数据保留。
+
+### 下一步
+
+T5 功能 commit 已完成并推送。下一步交给 Opus 4.8 判断复盘界面、入口与后续任务切分；不要把数据层安全债混入复盘界面任务。

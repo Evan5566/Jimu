@@ -13,7 +13,7 @@
 - 包名：`com.jimu.app`。
 - 当前主模块：`app`。
 - 主要功能：待办、习惯、目标、已完成记录。
-- 待补核心功能：复盘。
+- 复盘当前状态：数据层已完成，界面与入口尚未实现。
 
 ## 当前技术事实
 
@@ -23,6 +23,7 @@
 - 导航：Navigation Compose。
 - 语音识别：Android 系统 `SpeechRecognizer`。
 - 任务语音解析：本地规则解析 `MockTaskParseRepository`。
+- 复盘数据层：`daily_reviews` / `ReviewEntity` / `ReviewDao` / `ReviewRepository`。
 - 当前未发现 Java 源文件。
 - 当前未发现 XML layout 页面。
 
@@ -50,7 +51,7 @@ C:\Users\Evan\.jdks\zulu21.50.19-ca-jdk21.0.11-win_x64\zulu21.50.19-ca-jdk21.0.1
 最近一次构建结果：
 
 ```text
-BUILD SUCCESSFUL in 24s
+BUILD SUCCESSFUL in 13s
 ```
 
 APK 输出路径：
@@ -72,14 +73,22 @@ F:\jimuapp\app\build\outputs\apk\debug\app-debug.apk
 - T4 已完成：Room 数据安全最小整改。
 - T4 commit：`0b85988`。
 - T4 已建立 Room version 4 schema 基线：`app/schemas/com.jimu.app.data.local.AppDatabase/4.json`。
-- `AppDatabase` 当前仍为 `version = 4`，并已设置 `exportSchema = true`。
 - 已移除 Room 破坏性迁移 fallback。
 - T4 验证：`assembleDebug` 已通过。
-- 当前下一步：T5，由 Opus 4.8 决策复盘 MVP / 数据层下一步。
+- T5 已完成：复盘数据层与 Room 4 到 5 迁移。
+- T5 commit：`3b26779`。
+- `AppDatabase` 当前为 `version = 5`，并已设置 `exportSchema = true`。
+- T5 已建立 Room version 5 schema：`app/schemas/com.jimu.app.data.local.AppDatabase/5.json`。
+- T5 新增 `daily_reviews` 表。
+- T5 新增 `MIGRATION_4_5`，只创建 `daily_reviews` 表，不修改旧 5 张表。
+- `JimuApp` 当前已注册 `.addMigrations(MIGRATION_4_5)`，并暴露 `reviewRepository`。
+- T5 验证：`testDebugUnitTest` 和 `assembleDebug` 已通过。
+- 当前下一步：交给 Opus 4.8 判断复盘界面、入口与后续任务切分。
 
 ## 当前数据库安全状态
 
-- 已有 Room version 4 schema 基线。
+- 已有 Room version 4 和 version 5 schema 基线。
+- 已有第一条正式 migration：`MIGRATION_4_5`。
 - 未来数据库结构变更必须写 migration。
 - 当前未做 `habit_records(habitId, recordDate)` 唯一约束。
 - 当前未做子表外键。
@@ -90,7 +99,8 @@ F:\jimuapp\app\build\outputs\apk\debug\app-debug.apk
 
 ## 当前已知风险
 
-- Room 已完成 schema 基线和破坏性迁移 fallback 移除；后续数据库结构变更必须写 migration。
+- Room 已完成 schema 基线、破坏性迁移 fallback 移除和首条正式 migration；后续数据库结构变更必须写 migration。
 - 数据层仍有唯一约束、外键、索引、显式事务和历史脏数据清理等后续安全债。
-- 复盘功能尚未实现。
+- v4 旧库覆盖安装到 v5 的设备/模拟器回归尚未执行；当前限制是命令行 `adb` 不在 PATH。该限制不影响代码提交，但后续需要用 Android Studio 或配置 adb 后补测。
+- 复盘界面与入口尚未实现。
 - 核心逻辑测试仍待后续 T9 补齐。

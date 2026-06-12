@@ -28,7 +28,8 @@
 - 目标支持新增、编辑、删除、步骤管理和进度统计。
 - 已完成页支持查看完成记录和回退待办状态。
 - 首页有语音新增入口。
-- Room 已建立 version 4 schema 基线，后续数据库结构变更必须写 migration。
+- Room 已从 version 4 迁移到 version 5，已建立 schema 基线并写入第一条正式 migration。
+- 复盘数据层已具备：`daily_reviews` 表、`ReviewEntity`、`ReviewDao`、`ReviewRepository`。
 
 ## 近期路线
 
@@ -45,13 +46,15 @@
   - 不应在 T3 / T4 之前引入构建工具链风险。
 - T3：已完成 - 习惯支持取消今日打卡，commit `ad741b6`，`assembleDebug` 已通过。
 - T4：已完成 - Room 数据安全最小整改，commit `0b85988`，已建立 Room version 4 schema 基线，`exportSchema = true`，已移除破坏性迁移 fallback，`assembleDebug` 已通过。
-- T5：下一步 - 由 Opus 4.8 决策复盘 MVP / 数据层下一步。
+- T5：已完成 - 复盘数据层与 Room 4 到 5 迁移，commit `3b26779`，新增 `daily_reviews` 表、`MIGRATION_4_5`、`ReviewRepository`，`testDebugUnitTest` 和 `assembleDebug` 已通过。
 
-T4 后当前数据库安全状态：
+T5 后当前数据库安全状态：
 
-- 已有 Room version 4 schema 基线。
+- 已有 Room version 4 和 version 5 schema。
+- 已有第一条正式 migration：`MIGRATION_4_5`，只创建 `daily_reviews` 表，不修改旧表。
 - 未来数据库结构变更必须写 migration，不再依赖破坏性删库。
 - 暂未处理 `habit_records(habitId, recordDate)` 唯一约束、子表外键、索引、删除习惯/目标的显式事务、`insertHabitRecord` 去重问题和历史脏数据清理。
+- v4 旧库覆盖安装到 v5 的设备/模拟器回归尚未补测；当前记录的限制是命令行 `adb` 不在 PATH。
 
 ### 2. 做复盘最小版本
 
@@ -59,7 +62,7 @@ T4 后当前数据库安全状态：
 
 最小版本只需要：
 
-- 新增复盘数据表。
+- 新增复盘数据表。已在 T5 完成数据层。
 - 支持写一条今日复盘。
 - 字段先保持简单：日期、做得好的事、遇到的问题、明日重点。
 - 在 UI 中提供入口，可以先作为独立页面，也可以先从首页进入。
@@ -97,7 +100,7 @@ T4 后当前数据库安全状态：
 
 优先顺序：
 
-1. T5：由 Opus 4.8 决策复盘 MVP / 数据层下一步。
+1. 下一步交给 Opus 4.8 判断：基于 T5 的 `ReviewRepository` 最终签名，决策复盘界面、入口与验证范围。
 2. MVP 稳定后：单独处理 AGP / Kotlin / KSP / Compose 构建工具链升级。
 
-这样推进的好处是：T1/T2/T3/T4 已经收口，Room 已有 schema 基线；下一步先由 Opus 4.8 判断是推进复盘 MVP，还是继续补数据层安全债。构建工具链升级暂时不插队，避免把工具链风险混入产品能力或数据安全整改。
+这样推进的好处是：T1/T2/T3/T4/T5 已经收口，Room migration 通道已经首次跑通；下一步先由 Opus 4.8 判断复盘界面和入口如何切分，数据层安全债继续作为独立任务保留。构建工具链升级暂时不插队，避免把工具链风险混入产品能力或数据安全整改。
