@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.jimu.app.data.local.entity.TaskEntity
 import com.jimu.app.data.repository.TaskRepository
+import com.jimu.app.reminder.TaskReminderScheduler
 import com.jimu.app.voice.MockTaskParseRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -24,7 +25,8 @@ enum class TaskDateOption {
 }
 
 class TasksViewModel(
-    private val repository: TaskRepository
+    private val repository: TaskRepository,
+    private val taskReminderScheduler: TaskReminderScheduler
 ) : ViewModel() {
 
     private val _showAddDialog = MutableStateFlow(false)
@@ -133,7 +135,7 @@ class TasksViewModel(
 
     fun addTask() {
         viewModelScope.launch {
-            repository.addTask(
+            val task = repository.addTask(
                 title = _newTaskTitle.value,
                 dueDate = dueDateFromOption(
                     option = _newTaskDateOption.value,
@@ -141,6 +143,12 @@ class TasksViewModel(
                     customTime = _newTaskCustomTime.value
                 )
             )
+            task?.let {
+                taskReminderScheduler.schedule(
+                    task = it,
+                    mayRequestExactAlarmPermission = true
+                )
+            }
             closeAddDialog()
         }
     }
@@ -151,7 +159,12 @@ class TasksViewModel(
             val drafts = parser.parseTasks(recognizedText)
 
             if (drafts.isEmpty()) {
-                repository.addTask(recognizedText)
+                repository.addTask(recognizedText)?.let {
+                    taskReminderScheduler.schedule(
+                        task = it,
+                        mayRequestExactAlarmPermission = true
+                    )
+                }
                 return@launch
             }
 
@@ -159,7 +172,12 @@ class TasksViewModel(
                 repository.addTask(
                     title = draft.title,
                     dueDate = draft.dueDateMillis
-                )
+                )?.let {
+                    taskReminderScheduler.schedule(
+                        task = it,
+                        mayRequestExactAlarmPermission = true
+                    )
+                }
             }
         }
     }
@@ -167,29 +185,52 @@ class TasksViewModel(
     fun toggleTaskCompleted(task: TaskEntity) {
         viewModelScope.launch {
             repository.toggleTaskCompleted(task)
+            val updatedTask = task.copy(
+                isCompleted = !task.isCompleted,
+                updatedAt = System.currentTimeMillis()
+            )
+            if (updatedTask.isCompleted) {
+                taskReminderScheduler.cancel(updatedTask.id)
+            } else {
+                taskReminderScheduler.schedule(
+                    task = updatedTask,
+                    mayRequestExactAlarmPermission = true
+                )
+            }
         }
     }
 
     fun deleteTask(task: TaskEntity) {
         viewModelScope.launch {
+            taskReminderScheduler.cancel(task.id)
             repository.deleteTask(task)
         }
     }
 
     fun rescheduleTaskToToday(task: TaskEntity) {
+        val dueDate = dateToStartOfDayMillis(LocalDate.now())
         viewModelScope.launch {
             repository.rescheduleTask(
                 task = task,
-                dueDate = dateToStartOfDayMillis(LocalDate.now())
+                dueDate = dueDate
+            )
+            taskReminderScheduler.schedule(
+                task = task.copy(dueDate = dueDate),
+                mayRequestExactAlarmPermission = true
             )
         }
     }
 
     fun rescheduleTaskToTomorrow(task: TaskEntity) {
+        val dueDate = dateToStartOfDayMillis(LocalDate.now().plusDays(1))
         viewModelScope.launch {
             repository.rescheduleTask(
                 task = task,
-                dueDate = dateToStartOfDayMillis(LocalDate.now().plusDays(1))
+                dueDate = dueDate
+            )
+            taskReminderScheduler.schedule(
+                task = task.copy(dueDate = dueDate),
+                mayRequestExactAlarmPermission = true
             )
         }
     }
@@ -199,6 +240,10 @@ class TasksViewModel(
             repository.rescheduleTask(
                 task = task,
                 dueDate = dueDate
+            )
+            taskReminderScheduler.schedule(
+                task = task.copy(dueDate = dueDate),
+                mayRequestExactAlarmPermission = true
             )
         }
     }
@@ -270,17 +315,34 @@ class TasksViewModel(
 
     fun saveEdit() {
         val task = _editingTask.value ?: return
+        val finalTitle = _editTitle.value.trim()
+        if (finalTitle.isBlank()) {
+            cancelEdit()
+            return
+        }
+
+        val dueDate = dueDateFromOption(
+            option = _editDateOption.value,
+            customDate = _editCustomDate.value,
+            customTime = _editCustomTime.value
+        )
+        val updatedTask = task.copy(
+            title = finalTitle,
+            description = _editDescription.value.trim().ifBlank { null },
+            dueDate = dueDate,
+            updatedAt = System.currentTimeMillis()
+        )
 
         viewModelScope.launch {
             repository.updateTask(
                 task = task,
                 title = _editTitle.value,
                 description = _editDescription.value,
-                dueDate = dueDateFromOption(
-                    option = _editDateOption.value,
-                    customDate = _editCustomDate.value,
-                    customTime = _editCustomTime.value
-                )
+                dueDate = dueDate
+            )
+            taskReminderScheduler.schedule(
+                task = updatedTask,
+                mayRequestExactAlarmPermission = true
             )
             cancelEdit()
         }
@@ -318,12 +380,13 @@ private fun combineDateAndTime(dateMillis: Long, minutesOfDay: Int?): Long {
 }
 
 class TasksViewModelFactory(
-    private val repository: TaskRepository
+    private val repository: TaskRepository,
+    private val taskReminderScheduler: TaskReminderScheduler
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(TasksViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return TasksViewModel(repository) as T
+            return TasksViewModel(repository, taskReminderScheduler) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

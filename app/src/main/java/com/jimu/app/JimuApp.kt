@@ -8,8 +8,16 @@ import com.jimu.app.data.repository.GoalRepository
 import com.jimu.app.data.repository.HabitRepository
 import com.jimu.app.data.repository.ReviewRepository
 import com.jimu.app.data.repository.TaskRepository
+import com.jimu.app.reminder.TaskReminderNotifier
+import com.jimu.app.reminder.TaskReminderScheduler
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class JimuApp : Application() {
+    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     lateinit var database: AppDatabase
         private set
@@ -26,8 +34,14 @@ class JimuApp : Application() {
     lateinit var reviewRepository: ReviewRepository
         private set
 
+    lateinit var taskReminderScheduler: TaskReminderScheduler
+        private set
+
     override fun onCreate() {
         super.onCreate()
+
+        TaskReminderNotifier.createNotificationChannel(this)
+        taskReminderScheduler = TaskReminderScheduler(this)
 
         database = Room.databaseBuilder(
             applicationContext,
@@ -41,5 +55,20 @@ class JimuApp : Application() {
         habitRepository = HabitRepository(database.habitDao())
         goalRepository = GoalRepository(database.goalDao())
         reviewRepository = ReviewRepository(database.reviewDao())
+
+        restoreFutureTaskRemindersAsync()
+    }
+
+    fun restoreFutureTaskRemindersAsync() {
+        applicationScope.launch {
+            restoreFutureTaskReminders()
+        }
+    }
+
+    suspend fun restoreFutureTaskReminders() {
+        withContext(Dispatchers.IO) {
+            val tasks = taskRepository.getFutureReminderTasks(System.currentTimeMillis())
+            tasks.forEach(taskReminderScheduler::schedule)
+        }
     }
 }

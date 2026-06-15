@@ -80,7 +80,10 @@ fun TasksScreen(innerPadding: PaddingValues) {
     val context = LocalContext.current
 
     val viewModel: TasksViewModel = viewModel(
-        factory = TasksViewModelFactory(app.taskRepository)
+        factory = TasksViewModelFactory(
+            repository = app.taskRepository,
+            taskReminderScheduler = app.taskReminderScheduler
+        )
     )
 
     val tasks by viewModel.tasks.collectAsState()

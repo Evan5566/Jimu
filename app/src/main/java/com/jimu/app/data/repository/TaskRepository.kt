@@ -11,19 +11,24 @@ class TaskRepository(
 
     fun observeCompletedTasks(): Flow<List<TaskEntity>> = taskDao.observeCompletedTasks()
 
+    suspend fun getFutureReminderTasks(nowMillis: Long): List<TaskEntity> {
+        return taskDao.getFutureReminderTasks(nowMillis)
+    }
+
     suspend fun addTask(
         title: String,
         dueDate: Long? = null
-    ) {
+    ): TaskEntity? {
         val finalTitle = title.trim()
-        if (finalTitle.isBlank()) return
+        if (finalTitle.isBlank()) return null
 
-        taskDao.insertTask(
-            TaskEntity(
-                title = finalTitle,
-                dueDate = dueDate
-            )
+        val task = TaskEntity(
+            title = finalTitle,
+            dueDate = dueDate
         )
+        val id = taskDao.insertTask(task)
+
+        return task.copy(id = id)
     }
 
     suspend fun toggleTaskCompleted(task: TaskEntity) {
