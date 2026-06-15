@@ -6,4 +6,5 @@ sealed class Routes(val route: String, val title: String) {
     data object Habits : Routes("habits", "习惯")
     data object Goals : Routes("goals", "目标")
     data object Completed : Routes("completed", "已完成")
+    data object Review : Routes("review", "今日复盘")
 }

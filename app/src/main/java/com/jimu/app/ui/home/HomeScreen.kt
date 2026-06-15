@@ -10,8 +10,10 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.Flag
@@ -44,6 +46,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jimu.app.JimuApp
 import com.jimu.app.ui.theme.OceanBlue
 import com.jimu.app.viewmodel.HomeGoalFocusUiModel
+import com.jimu.app.viewmodel.HomeTodayReviewUiModel
 import com.jimu.app.viewmodel.HomeViewModel
 import com.jimu.app.viewmodel.HomeViewModelFactory
 import com.jimu.app.viewmodel.VoiceInputViewModel
@@ -54,14 +57,18 @@ import com.jimu.app.voice.VoiceInputSheet
 import com.jimu.app.voice.VoiceInputTarget
 
 @Composable
-fun HomeScreen(innerPadding: PaddingValues) {
+fun HomeScreen(
+    innerPadding: PaddingValues,
+    onOpenReview: () -> Unit
+) {
     val context = LocalContext.current
     val app = context.applicationContext as JimuApp
 
     val homeViewModel: HomeViewModel = viewModel(
         factory = HomeViewModelFactory(
             app.taskRepository,
-            app.goalRepository
+            app.goalRepository,
+            app.reviewRepository
         )
     )
 
@@ -78,6 +85,7 @@ fun HomeScreen(innerPadding: PaddingValues) {
     val todoCount by homeViewModel.todoCount.collectAsState()
     val completedCount by homeViewModel.completedCount.collectAsState()
     val goalFocus by homeViewModel.goalFocus.collectAsState()
+    val todayReview by homeViewModel.todayReview.collectAsState()
     val voiceState by voiceViewModel.state.collectAsState()
 
     var visible by remember { mutableStateOf(false) }
@@ -180,11 +188,12 @@ fun HomeScreen(innerPadding: PaddingValues) {
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
+                .verticalScroll(rememberScrollState())
                 .padding(
                     start = 16.dp,
                     end = 16.dp,
                     top = 12.dp,
-                    bottom = contentPadding.calculateBottomPadding() + 12.dp
+                    bottom = contentPadding.calculateBottomPadding() + 96.dp
                 )
         ) {
             AnimatedVisibility(
@@ -285,6 +294,22 @@ fun HomeScreen(innerPadding: PaddingValues) {
                     }
                 )
             }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            AnimatedVisibility(
+                visible = visible,
+                enter = fadeIn(animationSpec = tween(580)) +
+                        slideInVertically(
+                            initialOffsetY = { it / 4 },
+                            animationSpec = tween(580)
+                        )
+            ) {
+                TodayReviewCard(
+                    review = todayReview,
+                    onClick = onOpenReview
+                )
+            }
         }
 
         if (showVoiceSheet) {
@@ -322,6 +347,74 @@ fun HomeScreen(innerPadding: PaddingValues) {
                         showVoiceSheet = false
                     }
                 }
+            )
+        }
+    }
+}
+
+@Composable
+private fun TodayReviewCard(
+    review: HomeTodayReviewUiModel,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (review.hasReview) {
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.06f)
+            } else {
+                MaterialTheme.colorScheme.surface
+            }
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "今日复盘",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                Surface(
+                    shape = RoundedCornerShape(999.dp),
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
+                ) {
+                    Text(
+                        text = if (review.hasReview) "已记录" else "去记录",
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+
+            Text(
+                text = review.reviewDate,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Text(
+                text = if (review.hasReview) {
+                    review.displaySummary
+                } else {
+                    "写下今天做得好的事，收个口，也给明天留一个清晰重点。"
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }

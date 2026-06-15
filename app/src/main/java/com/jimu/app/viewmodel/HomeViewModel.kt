@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.jimu.app.data.repository.GoalRepository
 import com.jimu.app.data.repository.GoalUiModel
+import com.jimu.app.data.repository.ReviewRepository
 import com.jimu.app.data.repository.TaskRepository
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.map
@@ -25,9 +26,19 @@ data class HomeGoalFocusUiModel(
         get() = goalCount > 0
 }
 
+data class HomeTodayReviewUiModel(
+    val reviewDate: String = LocalDate.now().toString(),
+    val hasReview: Boolean = false,
+    val summary: String = ""
+) {
+    val displaySummary: String
+        get() = summary.ifBlank { "今日复盘已保存。" }
+}
+
 class HomeViewModel(
     taskRepository: TaskRepository,
-    goalRepository: GoalRepository
+    goalRepository: GoalRepository,
+    reviewRepository: ReviewRepository
 ) : ViewModel() {
 
     val todoCount = taskRepository.observeAllTasks()
@@ -70,6 +81,27 @@ class HomeViewModel(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = HomeGoalFocusUiModel()
+        )
+
+    val todayReview = reviewRepository.observeAllReviews()
+        .map { reviews ->
+            val today = LocalDate.now().toString()
+            val review = reviews
+                .filter { review ->
+                    review.reviewDate == today && review.type == "daily"
+                }
+                .maxByOrNull { review -> review.updatedAt }
+
+            HomeTodayReviewUiModel(
+                reviewDate = today,
+                hasReview = review != null,
+                summary = review?.summary?.trim().orEmpty()
+            )
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = HomeTodayReviewUiModel()
         )
 
     private fun buildGoalFocus(goals: List<GoalUiModel>): HomeGoalFocusUiModel {
@@ -150,12 +182,13 @@ private enum class GoalPeriodType {
 
 class HomeViewModelFactory(
     private val taskRepository: TaskRepository,
-    private val goalRepository: GoalRepository
+    private val goalRepository: GoalRepository,
+    private val reviewRepository: ReviewRepository
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(HomeViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return HomeViewModel(taskRepository, goalRepository) as T
+            return HomeViewModel(taskRepository, goalRepository, reviewRepository) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

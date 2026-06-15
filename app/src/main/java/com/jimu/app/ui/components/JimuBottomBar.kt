@@ -65,6 +65,7 @@ fun JimuBottomBar(
                                 is Routes.Habits -> Icons.Outlined.Loop
                                 is Routes.Goals -> Icons.Outlined.Flag
                                 is Routes.Completed -> Icons.Outlined.CheckCircle
+                                is Routes.Review -> Icons.Outlined.Home
                             },
                             contentDescription = tab.title
                         )
