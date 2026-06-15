@@ -84,6 +84,16 @@ T5 后当前数据库安全状态：
 - 明确 Android 版本权限要求。
 - 先支持待办提醒，不扩展到习惯和目标。
 - 不急着做重复提醒、智能提醒、复杂通知分类。
+- T7：已完成 - 待办到期提醒技术验证，已真机手测通过。
+  - 已接入 Android 13+ `POST_NOTIFICATIONS` 运行时权限、高优先级通知 channel、`BroadcastReceiver` 和待办新增/编辑/完成/删除时的提醒安排/取消。
+  - 真机准点性验证发现非精确 `AlarmManager.setAndAllowWhileIdle` 对 19:12 待办延迟到 19:13:29 投递，无法承诺严格准点；因此改为优先 `setExactAndAllowWhileIdle`，无 `SCHEDULE_EXACT_ALARM` 特殊访问时降级到 `setAndAllowWhileIdle`，并在用户主动安排提醒时引导到系统授权页。
+  - 已新增启动时未来提醒重排、`BOOT_COMPLETED` / `MY_PACKAGE_REPLACED` / 精确闹钟授权变化后的未来提醒重排。
+  - 已统一 reminder id 口径（`TaskReminderIds` 直接用 task id，超 Int 范围返回 null），避免 schedule/cancel 使用分散的 `hashCode()` 规则。
+  - 声音修复：旧通知 channel 一旦创建，其重要性/声音/震动会被系统锁定、代码改不动；为强制重建带声音的高优先级 channel，channel id 升级到 `task_due_reminders_v3`，并显式设置默认通知音、`AudioAttributes` 和震动模式。
+  - 未改 Room schema，未写 migration，未升级工具链，未扩展到习惯/目标。
+  - `testDebugUnitTest` 和 `assembleDebug` 已通过。
+  - 真机手测结论：打开系统“闹钟和提醒”授权 + 关闭电池智能优化 + 通知音量非 0 后，后台/锁屏到点精准触发，声音正常，系统静音时同步静音（走标准通知音量通道，行为正确）。
+  - 已知限制：非精确降级路径不承诺严格准点；部分国产 ROM 的电池策略可能压制后台触发，需用户手动关闭电池优化或加白名单，当前未在代码中引导该项。
 
 ### 4. 后续技术债：构建工具链升级
 
@@ -107,8 +117,11 @@ T5 后当前数据库安全状态：
 
 优先顺序：
 
-1. 下一阶段优先做提醒能力技术验证：先支持待办到期提醒，不扩展到习惯和目标。
-2. 复盘后续增强单独排期：历史复盘列表、mood 输入、真实快照、复盘删除。
-3. MVP 稳定后：单独处理 AGP / Kotlin / KSP / Compose 构建工具链升级。
+1. T7 已收口（待办提醒技术验证，真机手测通过）。下一步交给 Opus 4.8 判断复盘增强（T8）切分：优先做历史复盘列表（纯 UI + 已有 `observeAllReviews()`，不碰 schema）。
+2. 真实快照单独立项、先定口径：当前 `TaskEntity` 无 `completedAt`，`updatedAt` 会被完成/回退/编辑/改期污染，无法可靠表达“今天完成几件待办”；若要做需先决定是否新增 `completedAt`（属 schema 变更 + migration）。习惯快照口径较清晰（`habit_records.recordDate`）。
+3. 复盘其余增强（mood 输入、复盘删除 UI）继续排在历史列表之后。
+4. 提醒后续增强（电池白名单引导、习惯/目标提醒、重复提醒）待 MVP 稳定后再评估。
+5. 数据层安全债（唯一约束、外键、索引、显式事务、`insertHabitRecord` 去重、历史脏数据清理）继续作为独立任务保留。
+6. MVP 稳定后：单独处理 AGP / Kotlin / KSP / Compose 构建工具链升级。
 
-这样推进的好处是：T1/T2/T3/T4/T5/T6 已经收口，Room migration 通道已经首次跑通，复盘 MVP 闭环已经具备并已在真实手机完成手测；下一步进入提醒技术验证。数据层安全债和构建工具链升级继续作为独立任务保留，避免混入产品能力迭代。
+这样推进的好处是：T1–T7 已经收口，Room migration 通道已经首次跑通，复盘 MVP 闭环已具备并真机手测通过，待办提醒技术验证已真机确认可行；下一轮只做复盘增强，不把真实快照口径、数据层安全债和构建工具链升级混入同一轮。

@@ -478,3 +478,306 @@ T6 已由用户在真实手机完成手测，复盘最小闭环进入可用状�
 - mood 心情输入。
 - `completedTaskSnapshot` / `checkedHabitSnapshot` 接真实数据。
 - 复盘删除 UI。
+
+## 2026-06-15 - T7 待办到期提醒技术验证代码接入
+
+### 任务范围
+
+执行 T7 的代码层接入：验证待办到期提醒的最小技术链路。
+
+本次只支持待办提醒，不扩展到习惯和目标；不做重复提醒、提前 N 分钟、智能提醒、复杂通知分类；不做完整提醒设置 UI；不改 Room schema，不写 migration，不升级 Gradle / AGP / Kotlin / Compose / Room；不处理复盘真实快照和历史列表。
+
+本轮采用非精确 `AlarmManager.setAndAllowWhileIdle` 路径做最小验证，不默认申请 `SCHEDULE_EXACT_ALARM` 或 `USE_EXACT_ALARM`。T7 的产品语义是“到期附近提醒”，不是承诺严格准点。
+
+本轮不处理设备重启后的提醒重排；如果手机重启，已安排但尚未触发的 alarm 可能丢失，后续正式提醒系统需要单独处理 `BOOT_COMPLETED` 和待办重排策略。
+
+真机初测后通过 `adb shell dumpsys alarm` 和 `adb shell dumpsys notification --noredact` 定位：系统已有 `com.jimu.app.action.TASK_DUE` 的 alarm 触发历史，且 `com.jimu.app` 已经发布过 `task_due_reminders` 通知；问题不在调度链路，而在原通知 channel 为 `IMPORTANCE_DEFAULT`，通常只进入通知栏，不稳定弹出横幅/悬浮提醒。由于 Android 已创建的 channel 不能通过代码直接升高重要性，本轮切换到新的高优先级 channel：`task_due_reminders_v2`。
+
+### 修改文件
+
+- `app/src/main/AndroidManifest.xml`
+- `app/src/main/java/com/jimu/app/MainActivity.kt`
+- `app/src/main/java/com/jimu/app/JimuApp.kt`
+- `app/src/main/java/com/jimu/app/data/local/dao/TaskDao.kt`
+- `app/src/main/java/com/jimu/app/data/repository/TaskRepository.kt`
+- `app/src/main/java/com/jimu/app/reminder/TaskReminderPlan.kt`
+- `app/src/main/java/com/jimu/app/reminder/TaskReminderNotifier.kt`
+- `app/src/main/java/com/jimu/app/reminder/TaskReminderReceiver.kt`
+- `app/src/main/java/com/jimu/app/reminder/TaskReminderScheduler.kt`
+- `app/src/main/java/com/jimu/app/viewmodel/TasksViewModel.kt`
+- `app/src/main/java/com/jimu/app/ui/tasks/TasksScreen.kt`
+- `app/src/test/java/com/jimu/app/data/repository/TaskRepositoryTest.kt`
+- `app/src/test/java/com/jimu/app/reminder/TaskReminderPlanTest.kt`
+- `AI_PLAN.md`
+- `FACT_REPORT.md`
+- `DEV_LOG.md`
+
+### 修改内容
+
+- 在 `AndroidManifest.xml` 新增 `POST_NOTIFICATIONS` 权限，并声明非导出的 `TaskReminderReceiver`。
+- 在 `MainActivity` 中为 Android 13+ 申请通知运行时权限。
+- 在 `JimuApp` 初始化待办提醒通知 channel，并暴露 `taskReminderScheduler`。
+- 新增 `TaskReminderPlan`，用纯 Kotlin 逻辑判断待办是否需要安排提醒：必须未完成、有未来的 `dueDate`。
+- 新增 `TaskReminderNotifier`，负责创建高优先级通知 channel 和展示本地通知。
+- 新增 `TaskReminderReceiver`，到期广播触发后展示通知。
+- 新增 `TaskReminderScheduler`，用 `AlarmManager.setAndAllowWhileIdle` 安排待办到期提醒，并支持按任务 id 取消提醒。
+- 将 `TaskDao.insertTask` 改为返回插入 id。
+- 将 `TaskRepository.addTask` 改为返回 `TaskEntity?`，空标题返回 `null`，新增成功返回带 id 的任务。
+- 在 `TasksViewModel` 中接入提醒安排/取消：
+  - 新增待办和语音新增待办成功后安排提醒。
+  - 编辑或顺延待办后重新安排提醒。
+  - 完成待办或删除待办时取消提醒。
+- 在 `TasksScreen` 中把 `app.taskReminderScheduler` 传入 `TasksViewModelFactory`。
+
+### 测试与验证
+
+先写 `TaskRepositoryTest` 后运行：
+
+```powershell
+.\gradlew.bat testDebugUnitTest --tests com.jimu.app.data.repository.TaskRepositoryTest
+```
+
+预期失败结果：
+
+```text
+Unresolved reference: id
+Unresolved reference: title
+Unresolved reference: dueDate
+Unresolved reference: isCompleted
+```
+
+原因：当时 `TaskRepository.addTask` 仍返回 `Unit`，测试证明提醒调度拿不到稳定任务 id。
+
+实现 `TaskDao.insertTask` 返回 id、`TaskRepository.addTask` 返回 `TaskEntity?` 后再次运行：
+
+```powershell
+.\gradlew.bat testDebugUnitTest --tests com.jimu.app.data.repository.TaskRepositoryTest
+```
+
+结果：
+
+```text
+BUILD SUCCESSFUL in 33s
+```
+
+再写 `TaskReminderPlanTest` 后运行：
+
+```powershell
+.\gradlew.bat testDebugUnitTest --tests com.jimu.app.reminder.TaskReminderPlanTest
+```
+
+预期失败结果：
+
+```text
+Unresolved reference: TaskReminderPlan
+```
+
+实现 `TaskReminderPlan` 后再次运行：
+
+```powershell
+.\gradlew.bat testDebugUnitTest --tests com.jimu.app.reminder.TaskReminderPlanTest
+```
+
+结果：
+
+```text
+BUILD SUCCESSFUL in 10s
+```
+
+运行完整本地单元测试：
+
+```powershell
+.\gradlew.bat testDebugUnitTest
+```
+
+结果：
+
+```text
+BUILD SUCCESSFUL in 10s
+```
+
+运行 Debug 构建：
+
+```powershell
+.\gradlew.bat assembleDebug
+```
+
+结果：
+
+```text
+BUILD SUCCESSFUL in 7s
+```
+
+### 待执行的真机/模拟器手测
+
+T7 涉及 Android 运行时权限、系统调度、锁屏/息屏通知展示，本地 JVM 单测无法覆盖。后续需要在 Android Studio 或真实设备上执行：
+
+1. 安装当前 Debug APK。
+2. 首次启动 App 时允许通知权限。
+3. 新增一个 1-2 分钟后到期的待办。
+4. 回到桌面或锁屏等待。
+5. 确认到期附近出现“待办到期”通知。
+6. 点击通知，确认能回到 App。
+7. 再新增一个未来时间待办后立即标记完成，确认到期时不再弹通知。
+8. 再新增一个未来时间待办后删除，确认到期时不再弹通知。
+9. 拒绝通知权限后重复新增待办，确认不会崩溃，且不会展示通知。
+
+### 当前结论
+
+- 代码层已经打通待办提醒最小链路。
+- 当前路线不依赖精确闹钟权限，不承诺严格准点。
+- 当前提醒使用新的 `task_due_reminders_v2` 高优先级 channel；如果设备系统仍关闭该 channel 的横幅/悬浮通知，需要在系统通知设置中手动打开。
+- 当前 spike 不处理设备重启后的提醒恢复。
+- 运行时权限、锁屏/息屏触发、不同 Android 版本上的实际延迟情况仍需设备手测后再决定正式提醒系统路线。
+
+### 挂账
+
+- 如果产品后续要求严格准点提醒，需要单独评估 `SCHEDULE_EXACT_ALARM` / `USE_EXACT_ALARM` 的申请体验和限制。
+- 真实快照需要先定义“今天完成几件待办”的口径；当前 `TaskEntity` 没有 `completedAt`，不能用 `updatedAt` 直接统计。
+- 复盘历史列表仍单独排期，不混入 T7。
+
+## 2026-06-15 - T7 精确闹钟与恢复收口
+
+### 背景
+
+真机手测发现非精确 `AlarmManager.setAndAllowWhileIdle` 会出现明显延迟：设定 19:12 到期的待办，通知实际在 19:13:29 进入通知栏。结论是提醒链路已打通，但非精确闹钟不能支撑“准点提醒”的产品语义。
+
+本次按 Opus 4.8 评估收口三项问题：
+
+- P0：精确闹钟 + 权限降级。
+- P0：应用启动、设备重启、安装替换和精确闹钟授权变化后的未来提醒重排。
+- P1：统一 requestCode / notificationId 口径，不再使用分散的 `hashCode()` 规则。
+
+### 修改内容
+
+- 新增 `SCHEDULE_EXACT_ALARM` 和 `RECEIVE_BOOT_COMPLETED` 权限声明。
+- `TaskReminderScheduler` 优先使用 `setExactAndAllowWhileIdle`；当系统未授予精确闹钟特殊访问时，降级到 `setAndAllowWhileIdle`。
+- 用户主动新增、编辑、顺延或恢复待办提醒时，如果缺少精确闹钟特殊访问，会跳转系统“闹钟和提醒”授权页；后台重排时不弹授权页。
+- `TaskReminderScheduler` 在精确闹钟调用处增加 `SecurityException` 兜底，避免 Android 12+ / 14 权限状态异常导致崩溃。
+- 新增 `TaskReminderIds`，把支持范围内的 `task.id` 直接映射为 requestCode / notificationId；超出 `Int` 范围时不安排提醒，避免 Long hash 冲突。
+- `TaskReminderPlan`、`TaskReminderScheduler.cancel()` 统一使用 `TaskReminderIds`。
+- `TaskDao` / `TaskRepository` 新增未来未完成待办查询，用于提醒恢复。
+- `JimuApp` 启动后重排未来待办提醒。
+- 新增 `TaskReminderRestoreReceiver`，监听 `BOOT_COMPLETED`、`MY_PACKAGE_REPLACED` 和 `SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED` 后重排未来待办提醒。
+- 新增 `TaskReminderAlarmPolicyTest`、`TaskReminderIdsTest`，并扩展 `TaskRepositoryTest` 覆盖未来提醒查询。
+
+### TDD 验证记录
+
+先写精确闹钟策略、ID 口径和未来提醒查询测试后运行：
+
+```powershell
+.\gradlew.bat testDebugUnitTest --tests "com.jimu.app.reminder.TaskReminderAlarmPolicyTest" --tests "com.jimu.app.reminder.TaskReminderIdsTest" --tests "com.jimu.app.data.repository.TaskRepositoryTest"
+```
+
+预期失败结果：
+
+```text
+Unresolved reference: TaskReminderAlarmPolicy
+Unresolved reference: TaskReminderAlarmMode
+Unresolved reference: TaskReminderIds
+Unresolved reference: getFutureReminderTasks
+```
+
+实现后再次运行同一组测试，结果：
+
+```text
+BUILD SUCCESSFUL in 22s
+```
+
+### 最终本地验证
+
+运行完整本地单元测试：
+
+```powershell
+.\gradlew.bat testDebugUnitTest
+```
+
+结果：
+
+```text
+BUILD SUCCESSFUL in 2s
+```
+
+运行 Debug 构建：
+
+```powershell
+.\gradlew.bat assembleDebug
+```
+
+结果：
+
+```text
+BUILD SUCCESSFUL in 16s
+```
+
+### 当前结论
+
+- T7 代码层已完成：待办到期提醒、通知权限、精确闹钟优先、非精确降级、取消提醒、启动/重启恢复、ID 口径统一均已接入。
+- T7 不使用 `USE_EXACT_ALARM`，避免走不适合待办 App 的 Play 审核捷径。
+- T7 不改 Room schema，不写 migration，不升级工具链，不扩展到习惯/目标，不做重复提醒或完整提醒设置 UI。
+- Android 13+ 通知权限、Android 12+ / 14 精确闹钟特殊访问、锁屏/息屏准点性和设备重启恢复仍需真机手测收口。
+
+### 真机手测方案
+
+1. 安装当前 Debug APK。
+2. 首次启动 App 时允许通知权限。
+3. 新增一个 1-2 分钟后到期的待办；如果系统打开“闹钟和提醒”授权页，授予 `迹目` 精确闹钟特殊访问。
+4. 回到 App，再新增一个 1-2 分钟后到期的待办。
+5. 回到桌面或锁屏等待，确认通知是否在设定时间附近进入通知栏。
+6. 点击通知，确认能回到 App。
+7. 新增一个未来到期待办后立即标记完成，确认到期时不再弹通知。
+8. 新增一个未来到期待办后删除，确认到期时不再弹通知。
+9. 关闭精确闹钟特殊访问后重复新增未来到期待办，确认不会崩溃，通知可能延迟但仍走降级链路。
+10. 新增一个几分钟后到期的待办后重启手机，重启并解锁后打开 App 或等待系统开机广播，确认未来提醒会被重排并触发。
+
+## 2026-06-15 - T7 通知声音修复与真机验证收口
+
+### 任务范围
+
+承接 T7：定位并修复“到点有通知但无声音”问题，完成真机手测收口。本次只改通知 channel，不改调度逻辑，不改数据库，不写 migration，不升级工具链，不扩展到习惯/目标。
+
+### 问题定位过程
+
+真机分层测试结论：
+
+- 打开系统“闹钟和提醒”授权后，前台/后台均可准点收到通知（`19:12 → 19:13:29` 的延迟是精确闹钟权限未授予时走非精确降级路径所致，授权后消失）。
+- 但通知始终无声。根因：旧通知 channel `task_due_reminders_v2` 在更早测试中已被系统创建，channel 的重要性/声音/震动一旦创建即被系统锁定，代码再设 `IMPORTANCE_HIGH` / `enableVibration` 也不生效。
+
+### 修改文件
+
+- `app/src/main/java/com/jimu/app/reminder/TaskReminderNotifier.kt`
+
+### 修改内容
+
+- channel id 从 `task_due_reminders_v2` 升级到 `task_due_reminders_v3`，强制系统重建一个带声音的高优先级 channel。
+- 在 `createNotificationChannel` 中显式设置默认通知音 `RingtoneManager.getDefaultUri(TYPE_NOTIFICATION)` + `AudioAttributes`（`USAGE_NOTIFICATION`），并设置 `vibrationPattern`。
+- 未改 `showTaskDueNotification` 的通知构建逻辑，未改调度、权限、恢复链路。
+
+### 验证结果
+
+构建与单测命令（临时设置 `JAVA_HOME` 指向本机 JDK 21，未改项目配置）：
+
+```powershell
+.\gradlew.bat testDebugUnitTest assembleDebug
+```
+
+结果：
+
+```text
+BUILD SUCCESSFUL
+```
+
+真机手测结论（用户执行）：
+
+- 打开“待办提醒”声音 + 取消电池智能优化后，后台/锁屏到点精准触发，时间准确。
+- 通知带声音；系统设为静音时声音同步消失，说明走标准通知音量通道，行为正确。
+
+### 已知限制
+
+- 准点触发依赖三项设备侧条件：精确闹钟授权、关闭电池智能优化、通知音量非 0。
+- 非精确降级路径不承诺严格准点。
+- 部分国产 ROM 电池策略可能压制后台触发，需用户手动关闭电池优化或加白名单；本次未在代码中引导该项。
+
+### 下一步
+
+T7 收口完成。下一步交给 Opus 4.8 判断 T8 复盘增强切分，优先历史复盘列表；真实快照需先定口径，单独立项。
