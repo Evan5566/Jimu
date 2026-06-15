@@ -359,3 +359,122 @@ BUILD SUCCESSFUL in 13s
 ### 下一步
 
 T5 功能 commit 已完成并推送。下一步交给 Opus 4.8 判断复盘界面、入口与后续任务切分；不要把数据层安全债混入复盘界面任务。
+
+## 2026-06-15 - T6 复盘最小闭环
+
+### 任务范围
+
+执行 T6：让用户能从首页进入今日复盘页，填写“做得好的事 / 遇到的问题 / 明日重点”并保存；再次进入能预填并修改今天已写内容。
+
+本次不加第 6 个底部 tab，不做历史复盘列表，不做 mood 输入，不接真实快照，不做复盘删除 UI，不改 `ReviewEntity` / `ReviewDao` / `ReviewRepository`，不改数据库版本，不写 migration，不处理数据库安全债，不做工具链升级。
+
+### 修改文件
+
+- `app/src/main/java/com/jimu/app/viewmodel/ReviewViewModel.kt`
+- `app/src/main/java/com/jimu/app/ui/review/ReviewScreen.kt`
+- `app/src/main/java/com/jimu/app/viewmodel/HomeViewModel.kt`
+- `app/src/main/java/com/jimu/app/ui/home/HomeScreen.kt`
+- `app/src/main/java/com/jimu/app/navigation/Routes.kt`
+- `app/src/main/java/com/jimu/app/navigation/AppNavHost.kt`
+- `app/src/main/java/com/jimu/app/ui/components/JimuBottomBar.kt`
+- `app/src/test/java/com/jimu/app/viewmodel/ReviewViewModelTest.kt`
+- `DEV_LOG.md`
+
+### 修改内容
+
+- 新增 `ReviewViewModel` 和 `ReviewFormUiState`。
+- 进入复盘页时使用 `LocalDate.now().toString()` 查询今日复盘并预填。
+- 暴露 `summary`、`problems`、`tomorrowFocus` 输入状态，并提供对应更新方法。
+- 保存时调用 `saveTodayReview(summary, problems, tomorrowFocus, mood = null, completedTaskSnapshot = 0, checkedHabitSnapshot = 0)`。
+- 保存规则采用“做得好的事”非空才允许保存；三个字段全空不会落库。
+- 新增 `ReviewScreen`，包含只读今日日期、三个多行输入框和保存按钮。
+- 首页新增“今日复盘”卡片，未写时显示引导文案，已写时显示已记录状态和摘要。
+- `HomeViewModel` 注入 `ReviewRepository`，通过 `observeAllReviews()` 派生今日复盘卡片状态。
+- `Routes` 新增 `Review` 非 tab 路由，`AppNavHost` 新增复盘页 composable。
+- 底部 tab 列表仍保持 5 个；`JimuBottomBar` 只为 sealed route 穷尽性补齐 `Routes.Review` 分支，不把 Review 加入 tabs。
+- 新增 `ReviewViewModelTest`，覆盖“summary 为空不能保存”“summary 非空可保存”“已有复盘可预填”的表单状态规则。
+
+### 验证结果
+
+先写测试后运行单测，预期失败：
+
+```powershell
+.\gradlew.bat testDebugUnitTest --tests com.jimu.app.viewmodel.ReviewViewModelTest
+```
+
+失败原因：
+
+```text
+Unresolved reference: ReviewFormUiState
+```
+
+实现 `ReviewFormUiState` 后再次运行：
+
+```powershell
+.\gradlew.bat testDebugUnitTest --tests com.jimu.app.viewmodel.ReviewViewModelTest
+```
+
+结果：
+
+```text
+BUILD SUCCESSFUL in 9s
+```
+
+第一次运行 Debug 构建时，发现 `JimuBottomBar` 的 sealed `when` 未覆盖新增 `Routes.Review` 分支。补齐分支后再次运行：
+
+```powershell
+.\gradlew.bat assembleDebug
+```
+
+结果：
+
+```text
+BUILD SUCCESSFUL in 20s
+```
+
+代码提交前再次运行完整本地单元测试：
+
+```powershell
+.\gradlew.bat testDebugUnitTest
+```
+
+结果：
+
+```text
+BUILD SUCCESSFUL in 4s
+```
+
+代码提交前再次运行 Debug 构建：
+
+```powershell
+.\gradlew.bat assembleDebug
+```
+
+结果：
+
+```text
+BUILD SUCCESSFUL in 17s
+```
+
+提交记录：
+
+```text
+6c6237e feat: add daily review MVP flow
+```
+
+推送状态：
+
+```text
+已推送到 origin/main
+```
+
+### 真实手机手测
+
+T6 已由用户在真实手机完成手测，复盘最小闭环进入可用状态。
+
+### 后续增强
+
+- 历史复盘列表。
+- mood 心情输入。
+- `completedTaskSnapshot` / `checkedHabitSnapshot` 接真实数据。
+- 复盘删除 UI。
