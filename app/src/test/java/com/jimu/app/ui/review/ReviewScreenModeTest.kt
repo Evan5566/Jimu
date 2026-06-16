@@ -8,20 +8,21 @@ import org.junit.Test
 class ReviewScreenModeTest {
 
     @Test
-    fun topLevelTabModeHidesBackAndUsesPlainSaveText() {
+    fun topLevelTabModeShowsHistoryHidesBackAndUsesPlainSaveText() {
+        assertTrue(reviewShowHistoryButton(isTopLevelTab = true))
         assertFalse(reviewShowBackButton(isTopLevelTab = true))
-        assertEquals("保存", reviewSaveButtonText(isSaving = false, isTopLevelTab = true))
+        assertEquals("保存", reviewSaveButtonText(isSaving = false))
     }
 
     @Test
-    fun secondaryModeKeepsBackAndSaveAndReturnText() {
+    fun secondaryModeHidesHistoryKeepsBackAndUsesPlainSaveText() {
+        assertFalse(reviewShowHistoryButton(isTopLevelTab = false))
         assertTrue(reviewShowBackButton(isTopLevelTab = false))
-        assertEquals("保存并返回", reviewSaveButtonText(isSaving = false, isTopLevelTab = false))
+        assertEquals("保存", reviewSaveButtonText(isSaving = false))
     }
 
     @Test
     fun savingTextDoesNotDependOnNavigationMode() {
-        assertEquals("保存中...", reviewSaveButtonText(isSaving = true, isTopLevelTab = true))
-        assertEquals("保存中...", reviewSaveButtonText(isSaving = true, isTopLevelTab = false))
+        assertEquals("保存中...", reviewSaveButtonText(isSaving = true))
     }
 }

@@ -1158,7 +1158,7 @@ BUILD SUCCESSFUL in 41s
 - `Routes.Review` 场景的 `ReviewScreen` 传入 `isTopLevelTab = true`；保存后留在复盘页，不再 pop 回首页。
 - `ReviewScreen` 新增独立的 `isTopLevelTab` 参数，不复用 `isTodayReview` 判断，避免“历史里点今天”被误判为一级 tab。
 - `ReviewScreen` tab 模式隐藏返回按钮，保存按钮文案为“保存”，保存成功后显示轻量“已保存”反馈。
-- `ReviewByDate` 二级页保持原逻辑：返回按钮仍显示，按钮文案为“保存并返回”，保存后 `popBackStack()` 回历史。
+- `ReviewByDate` 二级页后续按实机反馈调整为：返回按钮仍显示，隐藏“历史”入口，保存按钮文案统一为“保存”，保存后留在当前页并显示“已保存”；离开页面只由顶部“返回”负责。
 
 ### TDD 验证记录
 
@@ -1258,13 +1258,87 @@ BUILD SUCCESSFUL in 49s
 BUILD SUCCESSFUL in 43s
 ```
 
-### 待实机验证
+### 实机验证结论
 
-本轮尚未提交、尚未推送，等待用户实机验证。建议重点验证：
+用户已在真实手机完成 T10 手测。首页复盘卡与底栏复盘入口一致性、复盘 tab 保存反馈、复盘历史列表、待办页三段切换、已完成回退、首页精简和完成节奏口径均通过。
 
-1. 首页不再显示“今日概览”文字卡。
-2. 从首页“今日复盘”卡进入复盘，与点击底栏“复盘”落到同一个一级 tab。
-3. 复盘 tab 模式不显示“返回”，保存按钮为“保存”，保存后留在复盘页并显示“已保存”。
-4. 从复盘历史进入指定日期复盘仍显示“返回”，保存按钮为“保存并返回”，保存后回历史列表。
-5. 从复盘历史页或指定日期复盘页点击底部“首页”，仍能回到首页顶部。
-6. 从待办/目标等 tab 点击底部“首页”，不会恢复到刚才的 tab。
+实机验证时发现一处体验争议：从复盘历史列表点进某一天后，历史日期编辑页顶部同时出现“历史”和“返回”，底部按钮为“保存并返回”。用户判断“保存”和“返回”应拆开，保存后不应强制回历史列表。
+
+## 2026-06-16 - T10 历史复盘编辑交互收口
+
+### 背景
+
+承接 T10 实机验证反馈，收口历史日期复盘编辑页的按钮语义。本次只改复盘页交互与对应测试、文档，不改 Room schema，不改复盘数据层，不调整底部导航结构，不进入 R3 深色模式任务。
+
+目标语义：
+
+1. 复盘一级 tab：顶部显示“历史”，隐藏“返回”，底部按钮为“保存”，保存后留在当前页并显示“已保存”。
+2. 复盘历史列表页：顶部只有“返回”，没有保存按钮。
+3. 历史日期编辑页：顶部只有“返回”，不再显示“历史”；底部按钮为“保存”，保存后留在当前页并显示“已保存”；离开页面由顶部“返回”负责。
+
+### 修改文件
+
+- `app/src/main/java/com/jimu/app/navigation/AppNavHost.kt`
+- `app/src/main/java/com/jimu/app/ui/review/ReviewScreen.kt`
+- `app/src/test/java/com/jimu/app/ui/review/ReviewScreenModeTest.kt`
+- `AI_PLAN.md`
+- `FACT_REPORT.md`
+- `DEV_LOG.md`
+- `RELEASE_PLAN.md`
+
+### TDD 验证记录
+
+先修改 `ReviewScreenModeTest`，将期望改为：
+
+- 一级 tab 显示“历史”、隐藏“返回”、保存按钮为“保存”。
+- 历史日期编辑页隐藏“历史”、显示“返回”、保存按钮也为“保存”。
+- 保存中统一显示“保存中...”。
+
+随后运行：
+
+```powershell
+.\gradlew.bat testDebugUnitTest --tests com.jimu.app.ui.review.ReviewScreenModeTest
+```
+
+预期红灯：
+
+```text
+Unresolved reference: reviewShowHistoryButton
+No value passed for parameter 'isTopLevelTab'
+```
+
+实现 `reviewShowHistoryButton(...)`、简化 `reviewSaveButtonText(...)`，并移除 `ReviewByDate` 保存后的 `popBackStack()` 后，重跑同一测试，结果：
+
+```text
+BUILD SUCCESSFUL in 11s
+```
+
+### 最终本地验证
+
+完整单元测试：
+
+```powershell
+.\gradlew.bat testDebugUnitTest
+```
+
+结果：
+
+```text
+BUILD SUCCESSFUL in 4s
+```
+
+Debug 构建：
+
+```powershell
+.\gradlew.bat assembleDebug
+```
+
+结果：
+
+```text
+BUILD SUCCESSFUL in 6s
+```
+
+### 待快速实机复测
+
+本轮代码调整发生在用户完成 T10 主体真机手测之后。建议只复测历史日期编辑页这条路径：复盘 tab -> 历史 -> 点某一天 -> 顶部只有“返回”、底部按钮为“保存”、保存后停留当前页并显示“已保存”，点“返回”后回到历史列表。

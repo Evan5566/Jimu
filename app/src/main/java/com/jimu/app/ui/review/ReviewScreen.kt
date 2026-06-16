@@ -47,8 +47,7 @@ fun ReviewScreen(
     reviewDate: String = LocalDate.now().toString(),
     isTopLevelTab: Boolean = false,
     onOpenHistory: () -> Unit,
-    onBack: () -> Unit,
-    onSaved: () -> Unit
+    onBack: () -> Unit
 ) {
     val app = LocalContext.current.applicationContext as JimuApp
     val viewModel: ReviewViewModel = viewModel(
@@ -94,6 +93,7 @@ fun ReviewScreen(
                 reviewDate = uiState.reviewDate,
                 onOpenHistory = onOpenHistory,
                 onBack = onBack,
+                showHistoryButton = reviewShowHistoryButton(isTopLevelTab),
                 showBackButton = reviewShowBackButton(isTopLevelTab)
             )
 
@@ -121,10 +121,7 @@ fun ReviewScreen(
                 onClick = {
                     showSavedFeedback = false
                     viewModel.saveReview {
-                        if (isTopLevelTab) {
-                            showSavedFeedback = true
-                        }
-                        onSaved()
+                        showSavedFeedback = true
                     }
                 },
                 enabled = uiState.canSave,
@@ -132,8 +129,7 @@ fun ReviewScreen(
             ) {
                 Text(
                     reviewSaveButtonText(
-                        isSaving = uiState.isSaving,
-                        isTopLevelTab = isTopLevelTab
+                        isSaving = uiState.isSaving
                     )
                 )
             }
@@ -215,6 +211,7 @@ private fun ReviewHeader(
     reviewDate: String,
     onOpenHistory: () -> Unit,
     onBack: () -> Unit,
+    showHistoryButton: Boolean,
     showBackButton: Boolean
 ) {
     val isToday = reviewDate == LocalDate.now().toString()
@@ -239,8 +236,10 @@ private fun ReviewHeader(
         }
 
         Row {
-            TextButton(onClick = onOpenHistory) {
-                Text("历史")
+            if (showHistoryButton) {
+                TextButton(onClick = onOpenHistory) {
+                    Text("历史")
+                }
             }
             if (showBackButton) {
                 TextButton(onClick = onBack) {
@@ -251,16 +250,19 @@ private fun ReviewHeader(
     }
 }
 
+internal fun reviewShowHistoryButton(isTopLevelTab: Boolean): Boolean {
+    return isTopLevelTab
+}
+
 internal fun reviewShowBackButton(isTopLevelTab: Boolean): Boolean {
     return !isTopLevelTab
 }
 
 internal fun reviewSaveButtonText(
-    isSaving: Boolean,
-    isTopLevelTab: Boolean
+    isSaving: Boolean
 ): String {
     if (isSaving) return "保存中..."
-    return if (isTopLevelTab) "保存" else "保存并返回"
+    return "保存"
 }
 
 @Composable

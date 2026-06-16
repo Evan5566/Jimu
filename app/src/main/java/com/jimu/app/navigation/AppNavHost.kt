@@ -118,8 +118,7 @@ fun AppNavHost() {
                     },
                     onBack = {
                         navController.popBackStack()
-                    },
-                    onSaved = {}
+                    }
                 )
             }
             composable(Routes.ReviewHistory.route) {
@@ -156,9 +155,6 @@ fun AppNavHost() {
                         }
                     },
                     onBack = {
-                        navController.popBackStack()
-                    },
-                    onSaved = {
                         navController.popBackStack()
                     }
                 )
