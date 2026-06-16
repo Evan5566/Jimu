@@ -54,6 +54,9 @@ class DailyDigestBuilderTest {
         assertEquals("当前已完成 2 项待办：整理发布路线、补 T9 草稿。", digest.taskOverview)
         assertEquals("还有 1 项今日待处理、1 项逾期未完成。", digest.reminderOverview)
         assertTrue(digest.summaryLines.contains(digest.taskOverview))
+        assertFalse(digest.summaryLines.any { line -> line.contains("今天完成") })
+        assertFalse(digest.summaryLines.any { line -> line.contains("今日完成") })
+        assertFalse(digest.summaryLines.any { line -> line.contains("本周完成") })
         assertFalse(digest.summaryLines.any { line -> line.contains("今天完成了") })
     }
 

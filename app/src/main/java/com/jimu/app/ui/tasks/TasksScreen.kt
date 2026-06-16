@@ -58,20 +58,25 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jimu.app.JimuApp
 import com.jimu.app.data.local.entity.TaskEntity
+import com.jimu.app.ui.completed.buildCompletedGroups
 import com.jimu.app.ui.theme.OverdueTint
 import com.jimu.app.ui.theme.PanelBlue
 import com.jimu.app.ui.theme.TodayTint
 import com.jimu.app.viewmodel.TaskDateOption
 import com.jimu.app.viewmodel.TasksViewModel
 import com.jimu.app.viewmodel.TasksViewModelFactory
+import java.text.SimpleDateFormat
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 private enum class TaskViewMode {
     ALL,
-    TODAY
+    TODAY,
+    COMPLETED
 }
 
 @Composable
@@ -106,6 +111,8 @@ fun TasksScreen(innerPadding: PaddingValues) {
     val zoneId = ZoneId.systemDefault()
 
     val activeTasks = tasks.filter { !it.isCompleted }
+    val completedTasks = tasks.filter { it.isCompleted }
+    val completedGroups = remember(completedTasks) { buildCompletedGroups(completedTasks) }
 
     val overdueTasks = activeTasks.filter { task ->
         task.dueDate?.toLocalDate(zoneId)?.isBefore(today) == true
@@ -206,143 +213,167 @@ fun TasksScreen(innerPadding: PaddingValues) {
                 },
                 label = "task_view_mode"
             ) { targetMode ->
-                when {
-                    activeTasks.isEmpty() -> {
-                        EmptyState(text = "还没有待办，点击右下角开始添加。")
-                    }
-
-                    targetMode == TaskViewMode.TODAY &&
-                            overdueTasks.isEmpty() &&
-                            todayTasks.isEmpty() -> {
-                        EmptyState(text = "今天没有到期或逾期事项，可以按计划推进。")
-                    }
-
-                    else -> {
+                if (targetMode == TaskViewMode.COMPLETED) {
+                    if (completedTasks.isEmpty()) {
+                        EmptyState(text = "还没有已完成事项，完成后的待办会收纳在这里。")
+                    } else {
                         LazyColumn(
                             modifier = Modifier.padding(top = 16.dp),
-                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(14.dp),
                             contentPadding = PaddingValues(bottom = 120.dp)
                         ) {
-                            if (overdueTasks.isNotEmpty()) {
-                                item {
+                            completedGroups.forEach { group ->
+                                item(key = "completed_header_${group.dayStart}") {
                                     TaskGroupHeader(
-                                        title = "逾期",
-                                        subtitle = "这些事项已经超过原计划日期"
+                                        title = group.title,
+                                        subtitle = "点击状态可回退到待办"
                                     )
                                 }
-                                items(overdueTasks, key = { it.id }) { task ->
-                                    AnimatedVisibility(
-                                        visible = true,
-                                        enter = fadeIn(animationSpec = tween(220)) +
-                                                expandVertically(animationSpec = tween(220)),
-                                        exit = fadeOut(animationSpec = tween(180)) +
-                                                shrinkVertically(animationSpec = tween(180))
-                                    ) {
-                                        TaskItem(
-                                            task = task,
-                                            dueLabel = formatDueLabel(task.dueDate, zoneId),
-                                            showRescheduleMenu = true,
-                                            onRescheduleToday = { viewModel.rescheduleTaskToToday(task) },
-                                            onRescheduleTomorrow = { viewModel.rescheduleTaskToTomorrow(task) },
-                                            onRescheduleCustom = {
-                                                showDatePicker { pickedDate ->
-                                                    viewModel.rescheduleTaskToCustomDate(task, pickedDate)
-                                                }
-                                            },
-                                            onToggleCompleted = { viewModel.toggleTaskCompleted(task) },
-                                            onDelete = { viewModel.deleteTask(task) },
-                                            onEdit = { viewModel.startEditTask(task) }
-                                        )
-                                    }
+
+                                items(group.tasks, key = { it.id }) { task ->
+                                    CompletedTaskItem(
+                                        task = task,
+                                        onRevert = { viewModel.toggleTaskCompleted(task) }
+                                    )
                                 }
                             }
+                        }
+                    }
+                } else {
+                    when {
+                        activeTasks.isEmpty() -> {
+                            EmptyState(text = "还没有待办，点击右下角开始添加。")
+                        }
 
-                            if (todayTasks.isNotEmpty()) {
-                                item {
-                                    TaskGroupHeader(
-                                        title = "今日",
-                                        subtitle = "优先处理今天要推进的事项"
-                                    )
-                                }
-                                items(todayTasks, key = { it.id }) { task ->
-                                    AnimatedVisibility(
-                                        visible = true,
-                                        enter = fadeIn(animationSpec = tween(220)) +
-                                                expandVertically(animationSpec = tween(220)),
-                                        exit = fadeOut(animationSpec = tween(180)) +
-                                                shrinkVertically(animationSpec = tween(180))
-                                    ) {
-                                        TaskItem(
-                                            task = task,
-                                            dueLabel = "今天",
-                                            showRescheduleMenu = false,
-                                            onRescheduleToday = {},
-                                            onRescheduleTomorrow = {},
-                                            onRescheduleCustom = {},
-                                            onToggleCompleted = { viewModel.toggleTaskCompleted(task) },
-                                            onDelete = { viewModel.deleteTask(task) },
-                                            onEdit = { viewModel.startEditTask(task) }
+                        targetMode == TaskViewMode.TODAY &&
+                                overdueTasks.isEmpty() &&
+                                todayTasks.isEmpty() -> {
+                            EmptyState(text = "今天没有到期或逾期事项，可以按计划推进。")
+                        }
+
+                        else -> {
+                            LazyColumn(
+                                modifier = Modifier.padding(top = 16.dp),
+                                verticalArrangement = Arrangement.spacedBy(16.dp),
+                                contentPadding = PaddingValues(bottom = 120.dp)
+                            ) {
+                                if (overdueTasks.isNotEmpty()) {
+                                    item {
+                                        TaskGroupHeader(
+                                            title = "逾期",
+                                            subtitle = "这些事项已经超过原计划日期"
                                         )
                                     }
-                                }
-                            }
-
-                            if (targetMode == TaskViewMode.ALL && plannedTasks.isNotEmpty()) {
-                                item {
-                                    TaskGroupHeader(
-                                        title = "计划中",
-                                        subtitle = "后续安排的任务"
-                                    )
-                                }
-                                items(plannedTasks, key = { it.id }) { task ->
-                                    AnimatedVisibility(
-                                        visible = true,
-                                        enter = fadeIn(animationSpec = tween(220)) +
-                                                expandVertically(animationSpec = tween(220)),
-                                        exit = fadeOut(animationSpec = tween(180)) +
-                                                shrinkVertically(animationSpec = tween(180))
-                                    ) {
-                                        TaskItem(
-                                            task = task,
-                                            dueLabel = formatDueLabel(task.dueDate, zoneId),
-                                            showRescheduleMenu = false,
-                                            onRescheduleToday = {},
-                                            onRescheduleTomorrow = {},
-                                            onRescheduleCustom = {},
-                                            onToggleCompleted = { viewModel.toggleTaskCompleted(task) },
-                                            onDelete = { viewModel.deleteTask(task) },
-                                            onEdit = { viewModel.startEditTask(task) }
-                                        )
+                                    items(overdueTasks, key = { it.id }) { task ->
+                                        AnimatedVisibility(
+                                            visible = true,
+                                            enter = fadeIn(animationSpec = tween(220)) +
+                                                    expandVertically(animationSpec = tween(220)),
+                                            exit = fadeOut(animationSpec = tween(180)) +
+                                                    shrinkVertically(animationSpec = tween(180))
+                                        ) {
+                                            TaskItem(
+                                                task = task,
+                                                showRescheduleMenu = true,
+                                                onRescheduleToday = { viewModel.rescheduleTaskToToday(task) },
+                                                onRescheduleTomorrow = { viewModel.rescheduleTaskToTomorrow(task) },
+                                                onRescheduleCustom = {
+                                                    showDatePicker { pickedDate ->
+                                                        viewModel.rescheduleTaskToCustomDate(task, pickedDate)
+                                                    }
+                                                },
+                                                onToggleCompleted = { viewModel.toggleTaskCompleted(task) },
+                                                onDelete = { viewModel.deleteTask(task) },
+                                                onEdit = { viewModel.startEditTask(task) }
+                                            )
+                                        }
                                     }
                                 }
-                            }
 
-                            if (targetMode == TaskViewMode.ALL && unscheduledTasks.isNotEmpty()) {
-                                item {
-                                    TaskGroupHeader(
-                                        title = "未安排",
-                                        subtitle = "暂时没有指定日期的事项"
-                                    )
-                                }
-                                items(unscheduledTasks, key = { it.id }) { task ->
-                                    AnimatedVisibility(
-                                        visible = true,
-                                        enter = fadeIn(animationSpec = tween(220)) +
-                                                expandVertically(animationSpec = tween(220)),
-                                        exit = fadeOut(animationSpec = tween(180)) +
-                                                shrinkVertically(animationSpec = tween(180))
-                                    ) {
-                                        TaskItem(
-                                            task = task,
-                                            dueLabel = "未安排",
-                                            showRescheduleMenu = false,
-                                            onRescheduleToday = {},
-                                            onRescheduleTomorrow = {},
-                                            onRescheduleCustom = {},
-                                            onToggleCompleted = { viewModel.toggleTaskCompleted(task) },
-                                            onDelete = { viewModel.deleteTask(task) },
-                                            onEdit = { viewModel.startEditTask(task) }
+                                if (todayTasks.isNotEmpty()) {
+                                    item {
+                                        TaskGroupHeader(
+                                            title = "今日",
+                                            subtitle = "优先处理今天要推进的事项"
                                         )
+                                    }
+                                    items(todayTasks, key = { it.id }) { task ->
+                                        AnimatedVisibility(
+                                            visible = true,
+                                            enter = fadeIn(animationSpec = tween(220)) +
+                                                    expandVertically(animationSpec = tween(220)),
+                                            exit = fadeOut(animationSpec = tween(180)) +
+                                                    shrinkVertically(animationSpec = tween(180))
+                                        ) {
+                                            TaskItem(
+                                                task = task,
+                                                showRescheduleMenu = false,
+                                                onRescheduleToday = {},
+                                                onRescheduleTomorrow = {},
+                                                onRescheduleCustom = {},
+                                                onToggleCompleted = { viewModel.toggleTaskCompleted(task) },
+                                                onDelete = { viewModel.deleteTask(task) },
+                                                onEdit = { viewModel.startEditTask(task) }
+                                            )
+                                        }
+                                    }
+                                }
+
+                                if (targetMode == TaskViewMode.ALL && plannedTasks.isNotEmpty()) {
+                                    item {
+                                        TaskGroupHeader(
+                                            title = "计划中",
+                                            subtitle = "后续安排的任务"
+                                        )
+                                    }
+                                    items(plannedTasks, key = { it.id }) { task ->
+                                        AnimatedVisibility(
+                                            visible = true,
+                                            enter = fadeIn(animationSpec = tween(220)) +
+                                                    expandVertically(animationSpec = tween(220)),
+                                            exit = fadeOut(animationSpec = tween(180)) +
+                                                    shrinkVertically(animationSpec = tween(180))
+                                        ) {
+                                            TaskItem(
+                                                task = task,
+                                                showRescheduleMenu = false,
+                                                onRescheduleToday = {},
+                                                onRescheduleTomorrow = {},
+                                                onRescheduleCustom = {},
+                                                onToggleCompleted = { viewModel.toggleTaskCompleted(task) },
+                                                onDelete = { viewModel.deleteTask(task) },
+                                                onEdit = { viewModel.startEditTask(task) }
+                                            )
+                                        }
+                                    }
+                                }
+
+                                if (targetMode == TaskViewMode.ALL && unscheduledTasks.isNotEmpty()) {
+                                    item {
+                                        TaskGroupHeader(
+                                            title = "未安排",
+                                            subtitle = "暂时没有指定日期的事项"
+                                        )
+                                    }
+                                    items(unscheduledTasks, key = { it.id }) { task ->
+                                        AnimatedVisibility(
+                                            visible = true,
+                                            enter = fadeIn(animationSpec = tween(220)) +
+                                                    expandVertically(animationSpec = tween(220)),
+                                            exit = fadeOut(animationSpec = tween(180)) +
+                                                    shrinkVertically(animationSpec = tween(180))
+                                        ) {
+                                            TaskItem(
+                                                task = task,
+                                                showRescheduleMenu = false,
+                                                onRescheduleToday = {},
+                                                onRescheduleTomorrow = {},
+                                                onRescheduleCustom = {},
+                                                onToggleCompleted = { viewModel.toggleTaskCompleted(task) },
+                                                onDelete = { viewModel.deleteTask(task) },
+                                                onEdit = { viewModel.startEditTask(task) }
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -401,17 +432,6 @@ private fun Long.toLocalDate(zoneId: ZoneId): LocalDate {
         .toLocalDate()
 }
 
-private fun formatDueLabel(dueDate: Long?, zoneId: ZoneId): String {
-    if (dueDate == null) return "未安排"
-    val date = dueDate.toLocalDate(zoneId)
-    val today = LocalDate.now()
-    return when {
-        date == today -> "今天"
-        date == today.plusDays(1) -> "明天"
-        else -> "${date.monthValue}月${date.dayOfMonth}日"
-    }
-}
-
 private fun taskDateType(dueDate: Long?, zoneId: ZoneId): String {
     if (dueDate == null) return "UNSCHEDULED"
 
@@ -454,6 +474,11 @@ private fun TaskViewSwitcher(
     val outerHeight = 52.dp
     val outerPadding = 4.dp
     val spacing = 6.dp
+    val tabs = listOf(
+        TaskViewMode.TODAY to "今日",
+        TaskViewMode.ALL to "全部",
+        TaskViewMode.COMPLETED to "已完成"
+    )
 
     BoxWithConstraints(
         modifier = modifier
@@ -463,10 +488,12 @@ private fun TaskViewSwitcher(
             .background(MaterialTheme.colorScheme.surface)
             .padding(horizontal = outerPadding, vertical = outerPadding)
     ) {
-        val tabWidth = (maxWidth - spacing) / 2
+        val tabWidth = (maxWidth - spacing * (tabs.size - 1)) / tabs.size
+        val selectedIndex = tabs.indexOfFirst { (mode, _) -> mode == currentMode }
+            .coerceAtLeast(0)
 
         val indicatorOffset by animateDpAsState(
-            targetValue = if (currentMode == TaskViewMode.TODAY) 0.dp else tabWidth + spacing,
+            targetValue = (tabWidth + spacing) * selectedIndex.toFloat(),
             animationSpec = tween(
                 durationMillis = 460,
                 easing = FastOutSlowInEasing
@@ -487,18 +514,14 @@ private fun TaskViewSwitcher(
             modifier = Modifier.fillMaxSize(),
             horizontalArrangement = Arrangement.spacedBy(spacing)
         ) {
-            SwitcherTab(
-                modifier = Modifier.weight(1f),
-                text = "今日",
-                selected = currentMode == TaskViewMode.TODAY,
-                onClick = { onModeChange(TaskViewMode.TODAY) }
-            )
-            SwitcherTab(
-                modifier = Modifier.weight(1f),
-                text = "全部",
-                selected = currentMode == TaskViewMode.ALL,
-                onClick = { onModeChange(TaskViewMode.ALL) }
-            )
+            tabs.forEach { (mode, label) ->
+                SwitcherTab(
+                    modifier = Modifier.weight(1f),
+                    text = label,
+                    selected = currentMode == mode,
+                    onClick = { onModeChange(mode) }
+                )
+            }
         }
     }
 }
@@ -577,7 +600,6 @@ private fun EmptyState(text: String) {
 @Composable
 private fun TaskItem(
     task: TaskEntity,
-    dueLabel: String,
     showRescheduleMenu: Boolean,
     onRescheduleToday: () -> Unit,
     onRescheduleTomorrow: () -> Unit,
@@ -703,6 +725,109 @@ private fun TaskItem(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun CompletedTaskItem(
+    task: TaskEntity,
+    onRevert: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            Surface(
+                modifier = Modifier.size(40.dp),
+                shape = RoundedCornerShape(13.dp),
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Rounded.CheckCircle,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = task.title,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+
+                task.description
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { description ->
+                        Text(
+                            text = description,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                Text(
+                    text = "记录于 ${formatCompletedRecordTime(task.updatedAt)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                task.dueDate?.let { dueDate ->
+                    Text(
+                        text = "原计划 ${formatCompletedDueTime(dueDate)}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(999.dp),
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                modifier = Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .clickable(onClick = onRevert)
+            ) {
+                Text(
+                    text = "已完成",
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+    }
+}
+
+private fun formatCompletedRecordTime(timestamp: Long): String {
+    return SimpleDateFormat("M月d日 HH:mm", Locale.CHINA).format(Date(timestamp))
+}
+
+private fun formatCompletedDueTime(timestamp: Long): String {
+    val calendar = Calendar.getInstance().apply { timeInMillis = timestamp }
+    val hour = calendar.get(Calendar.HOUR_OF_DAY)
+    val minute = calendar.get(Calendar.MINUTE)
+
+    return if (hour == 0 && minute == 0) {
+        SimpleDateFormat("M月d日", Locale.CHINA).format(Date(timestamp))
+    } else {
+        SimpleDateFormat("M月d日 HH:mm", Locale.CHINA).format(Date(timestamp))
     }
 }
 

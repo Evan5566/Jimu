@@ -46,6 +46,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jimu.app.JimuApp
 import com.jimu.app.ui.theme.OceanBlue
+import com.jimu.app.viewmodel.HomeCompletionPaceUiModel
 import com.jimu.app.viewmodel.HomeGoalFocusUiModel
 import com.jimu.app.viewmodel.HomeTodayReviewUiModel
 import com.jimu.app.viewmodel.HomeViewModel
@@ -88,6 +89,12 @@ fun HomeScreen(
     val completedCount by homeViewModel.completedCount.collectAsState()
     val goalFocus by homeViewModel.goalFocus.collectAsState()
     val todayReview by homeViewModel.todayReview.collectAsState()
+    val completionPace = HomeCompletionPaceUiModel.from(
+        completedCount = completedCount,
+        todoCount = todoCount,
+        goalFocus = goalFocus,
+        todayReview = todayReview
+    )
     val voiceState by voiceViewModel.state.collectAsState()
 
     var visible by remember { mutableStateOf(false) }
@@ -251,12 +258,9 @@ fun HomeScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    CompactSummaryCard(
+                    CompletionPaceCard(
                         modifier = Modifier.weight(1f),
-                        title = "已完成",
-                        value = completedCount.toString(),
-                        subtitle = if (completedCount == 0) "暂无记录" else "保持节奏",
-                        icon = Icons.Outlined.Checklist
+                        completionPace = completionPace
                     )
 
                     GoalFocusCard(
@@ -264,44 +268,6 @@ fun HomeScreen(
                         goalFocus = goalFocus
                     )
                 }
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            AnimatedVisibility(
-                visible = visible,
-                enter = fadeIn(animationSpec = tween(520)) +
-                        slideInVertically(
-                            initialOffsetY = { it / 4 },
-                            animationSpec = tween(520)
-                        )
-            ) {
-                HomeHintCard(
-                    title = "今日概览",
-                    content = when {
-                        todoCount > 0 && goalFocus.hasGoals &&
-                                goalFocus.completedGoalCount == goalFocus.goalCount &&
-                                goalFocus.totalSteps > 0 ->
-                            "今天有 $todoCount 项待处理事项，${goalFocus.periodLabel}目标已全部完成。"
-
-                        todoCount > 0 && goalFocus.hasGoals ->
-                            "今天有 $todoCount 项待处理事项，${goalFocus.periodLabel}目标已完成 ${goalFocus.progress}%。"
-
-                        goalFocus.hasGoals &&
-                                goalFocus.completedGoalCount == goalFocus.goalCount &&
-                                goalFocus.totalSteps > 0 ->
-                            "${goalFocus.periodLabel}目标已全部完成，可以准备下一阶段。"
-
-                        goalFocus.hasGoals ->
-                            "${goalFocus.periodLabel}有 ${goalFocus.goalCount} 个目标，已完成 ${goalFocus.completedSteps}/${goalFocus.totalSteps} 步。"
-
-                        completedCount > 0 ->
-                            "你已经完成了 $completedCount 项事项，继续保持这个节奏。"
-
-                        else ->
-                            "今天节奏比较轻，可以安排接下来的计划。"
-                    }
-                )
             }
 
             Spacer(modifier = Modifier.height(14.dp))
@@ -592,12 +558,9 @@ private fun HighlightSummaryCard(
 }
 
 @Composable
-private fun CompactSummaryCard(
+private fun CompletionPaceCard(
     modifier: Modifier = Modifier,
-    title: String,
-    value: String,
-    subtitle: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector
+    completionPace: HomeCompletionPaceUiModel
 ) {
     Card(
         modifier = modifier,
@@ -620,29 +583,41 @@ private fun CompactSummaryCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        imageVector = icon,
-                        contentDescription = title,
+                        imageVector = Icons.Outlined.Checklist,
+                        contentDescription = completionPace.title,
                         tint = MaterialTheme.colorScheme.primary
                     )
                 }
             }
 
             Text(
-                text = title,
+                text = completionPace.title,
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
-                text = value,
+                text = completionPace.value,
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-                text = subtitle,
+                text = completionPace.subtitle,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                completionPace.detailLines.forEach { line ->
+                    Text(
+                        text = line,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
         }
     }
 }

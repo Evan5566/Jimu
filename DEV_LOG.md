@@ -453,7 +453,7 @@ BUILD SUCCESSFUL in 4s
 结果：
 
 ```text
-BUILD SUCCESSFUL in 17s
+BUILD SUCCESSFUL in 40s
 ```
 
 提交记录：
@@ -1028,3 +1028,243 @@ BUILD SUCCESSFUL in 10s
 ```
 
 用户已在真实手机复测，底部“首页”tab 能从待办、目标等页面正常回到真正首页，T9 相关功能全部 OK。T9 可以收口。
+
+## 2026-06-16 - T10 底部复盘入口与已完成迁移
+
+### 任务范围
+
+执行 T10 最终落地版：采用“方案 A + 保守统计口径”。本次只做信息架构重排，不提交、不推送，等待用户实机验证后再决定后续操作。
+
+本次明确不做：不引入基于 `updatedAt` 的“今日完成 / 本周完成”时间统计，不删除 `CompletedScreen.kt`，不改 Room schema，不写 migration，不引入 AI、图表、账号或云服务，不升级 Gradle / AGP / Kotlin / Room / Compose 工具链。
+
+### 修改文件
+
+- `app/src/main/java/com/jimu/app/navigation/Routes.kt`
+- `app/src/main/java/com/jimu/app/navigation/AppNavHost.kt`
+- `app/src/main/java/com/jimu/app/ui/components/JimuBottomBar.kt`
+- `app/src/main/java/com/jimu/app/ui/tasks/TasksScreen.kt`
+- `app/src/main/java/com/jimu/app/ui/completed/CompletedTaskGroups.kt`
+- `app/src/main/java/com/jimu/app/ui/completed/CompletedScreen.kt`
+- `app/src/main/java/com/jimu/app/ui/home/HomeScreen.kt`
+- `app/src/main/java/com/jimu/app/viewmodel/HomeViewModel.kt`
+- `app/src/test/java/com/jimu/app/navigation/TabNavigationPolicyTest.kt`
+- `app/src/test/java/com/jimu/app/ui/completed/CompletedTaskGroupsTest.kt`
+- `app/src/test/java/com/jimu/app/viewmodel/HomeCompletionPaceUiModelTest.kt`
+- `app/src/test/java/com/jimu/app/data/repository/DailyDigestBuilderTest.kt`
+- `AI_PLAN.md`
+- `DEV_LOG.md`
+
+### 修改内容
+
+- `Routes` 新增 `tabTitle`，让 `Routes.Review.title` 继续作为页面语义“今日复盘”，底栏显示则使用“复盘”。
+- `JimuBottomBar` 改为显示 `tabTitle`，并将 `Routes.Review` 图标改为 `Icons.Outlined.RateReview`。
+- `AppNavHost` 的底部 tabs 从 `首页 / 待办 / 习惯 / 目标 / 已完成` 改为 `首页 / 待办 / 习惯 / 目标 / 复盘`。
+- 从 `AppNavHost` 中移除 `Routes.Completed` 的页面注册；`CompletedScreen.kt` 文件保留。
+- `TasksScreen` 的 `TaskViewMode` 新增 `COMPLETED`，`TaskViewSwitcher` 从两段改为三段：`今日 / 全部 / 已完成`，指示器宽度和 offset 按 3 段动态计算。
+- 待办页“已完成”分支展示已完成待办，按天归档；点击“已完成”状态复用 `TasksViewModel.toggleTaskCompleted(task)` 回退到待办。
+- 将已完成分组逻辑抽到 `CompletedTaskGroups.kt` 的 `buildCompletedGroups(...)`，旧 `CompletedScreen` 和新待办页都复用同一套分组逻辑。
+- 首页原“已完成”小卡替换为“完成节奏”卡，主数字仍为当前已完成总数，辅助信息展示当前待处理、目标推进和今日复盘状态。
+- 首页完成卡不出现“今天完成 / 今日完成 / 本周完成”文案，继续使用 T9 的“当前已完成”保守口径。
+
+### TDD 验证记录
+
+先写测试后运行目标测试：
+
+```powershell
+.\gradlew.bat testDebugUnitTest --tests com.jimu.app.navigation.TabNavigationPolicyTest --tests com.jimu.app.ui.completed.CompletedTaskGroupsTest --tests com.jimu.app.viewmodel.HomeCompletionPaceUiModelTest --tests com.jimu.app.data.repository.DailyDigestBuilderTest
+```
+
+预期红灯包括：
+
+```text
+Unresolved reference: tabTitle
+Cannot access 'buildCompletedGroups': it is private in file
+Unresolved reference: HomeCompletionPaceUiModel
+```
+
+实现后重跑同一组目标测试，结果：
+
+```text
+BUILD SUCCESSFUL in 3s
+```
+
+### 最终本地验证
+
+完整本地单元测试：
+
+```powershell
+.\gradlew.bat testDebugUnitTest
+```
+
+结果：
+
+```text
+BUILD SUCCESSFUL in 17s
+```
+
+Debug 构建：
+
+```powershell
+.\gradlew.bat assembleDebug
+```
+
+结果：
+
+```text
+BUILD SUCCESSFUL in 41s
+```
+
+### 待实机验证
+
+本轮尚未提交、尚未推送，等待用户实机验证。建议重点验证：
+
+1. 底栏第 5 栏显示“复盘”，点击后进入今日复盘页。
+2. 从复盘历史页或指定日期复盘页点击底部“首页”，能回到首页顶部。
+3. 从待办、目标等 tab 点击底部“首页”，不会恢复到刚才的 tab。
+4. 待办页三段切换 `今日 / 全部 / 已完成` 的指示器宽度和动画对齐。
+5. 已完成分支能按日期归档展示完成记录。
+6. 点击完成记录的“已完成”状态后能回退到待办，并从已完成列表消失。
+7. 首页“完成节奏”卡不出现“今日完成 / 本周完成”等时间统计口径。
+
+## 2026-06-16 - T10 收尾：复盘入口统一与旧统计清理
+
+### 任务范围
+
+承接 T10，执行收尾整改：清理不可达 `CompletedScreen` 内部的旧时间统计病灶，精简首页卡片，统一首页复盘卡和底栏复盘 tab 的导航身份，并让 `ReviewScreen` 区分一级 tab 与历史日期二级页两种模式。
+
+本次不提交、不推送；不删除 `CompletedScreen.kt` / `CompletedViewModel.kt` / `HomeHintCard`；不改 Room schema，不写 migration，不升级 Gradle / AGP / Kotlin / Room / Compose，不引入 DI、AI、图表或云服务。
+
+### 修改文件
+
+- `app/src/main/java/com/jimu/app/navigation/AppNavHost.kt`
+- `app/src/main/java/com/jimu/app/ui/home/HomeScreen.kt`
+- `app/src/main/java/com/jimu/app/ui/review/ReviewScreen.kt`
+- `app/src/main/java/com/jimu/app/ui/completed/CompletedScreen.kt`
+- `app/src/main/java/com/jimu/app/ui/completed/CompletedStats.kt`
+- `app/src/test/java/com/jimu/app/navigation/TabNavigationPolicyTest.kt`
+- `app/src/test/java/com/jimu/app/ui/completed/CompletedStatsTest.kt`
+- `app/src/test/java/com/jimu/app/ui/review/ReviewScreenModeTest.kt`
+- `AI_PLAN.md`
+- `FACT_REPORT.md`
+- `DEV_LOG.md`
+
+### 修改内容
+
+- `CompletedScreen` 的 `CompletedSummaryCard` 从“累计 / 今天 / 本周”三格统计改为只展示“累计完成”和最近一条记录。
+- 新增 `CompletedStats.kt`，`buildCompletedStats(...)` 只保留 `totalCount` 和 `latestText`，不再基于 `updatedAt` 计算今日/本周完成。
+- 删除 `CompletedScreen.kt` 内部的 `todayCount`、`weekCount`、`startOfDay`、`startOfWeek` 旧病灶；`CompletedScreen.kt` 文件和 `CompletedViewModel.kt` 均保留。
+- 首页取消“今日概览”文字卡调用；`HomeHintCard` 函数本体保留。
+- `AppNavHost` 抽出本地 `navigateToTab(route)`，底栏点击和首页“今日复盘”卡共用同一套 `saveState` / `restoreState` / `popUpTo(startDestination)` tab 导航逻辑。
+- `Routes.Review` 场景的 `ReviewScreen` 传入 `isTopLevelTab = true`；保存后留在复盘页，不再 pop 回首页。
+- `ReviewScreen` 新增独立的 `isTopLevelTab` 参数，不复用 `isTodayReview` 判断，避免“历史里点今天”被误判为一级 tab。
+- `ReviewScreen` tab 模式隐藏返回按钮，保存按钮文案为“保存”，保存成功后显示轻量“已保存”反馈。
+- `ReviewByDate` 二级页保持原逻辑：返回按钮仍显示，按钮文案为“保存并返回”，保存后 `popBackStack()` 回历史。
+
+### TDD 验证记录
+
+先写测试后运行目标测试：
+
+```powershell
+.\gradlew.bat testDebugUnitTest --tests com.jimu.app.ui.completed.CompletedStatsTest --tests com.jimu.app.ui.review.ReviewScreenModeTest --tests com.jimu.app.navigation.TabNavigationPolicyTest
+```
+
+预期红灯包括：
+
+```text
+Cannot access 'buildCompletedStats': it is private in file
+Unresolved reference: reviewShowBackButton
+Unresolved reference: reviewSaveButtonText
+```
+
+实现后重跑同一组目标测试，结果：
+
+```text
+BUILD SUCCESSFUL in 9s
+```
+
+### 分步验证记录
+
+清理 `CompletedScreen` 旧统计病灶后运行：
+
+```powershell
+.\gradlew.bat assembleDebug
+```
+
+结果：
+
+```text
+BUILD SUCCESSFUL in 28s
+```
+
+移除首页“今日概览”卡调用后运行：
+
+```powershell
+.\gradlew.bat assembleDebug
+```
+
+结果：
+
+```text
+BUILD SUCCESSFUL in 12s
+```
+
+抽出 `navigateToTab(route)` 并统一首页复盘卡 / 底栏复盘 tab 导航后运行：
+
+```powershell
+.\gradlew.bat assembleDebug
+```
+
+结果：
+
+```text
+BUILD SUCCESSFUL in 7s
+```
+
+完成 `ReviewScreen` 双模式后运行：
+
+```powershell
+.\gradlew.bat assembleDebug
+```
+
+结果：
+
+```text
+BUILD SUCCESSFUL in 4s
+```
+
+### 最终本地验证
+
+强制重跑完整本地单元测试：
+
+```powershell
+.\gradlew.bat testDebugUnitTest --rerun-tasks
+```
+
+结果：
+
+```text
+BUILD SUCCESSFUL in 49s
+```
+
+强制重跑 Debug 构建：
+
+```powershell
+.\gradlew.bat assembleDebug --rerun-tasks
+```
+
+结果：
+
+```text
+BUILD SUCCESSFUL in 43s
+```
+
+### 待实机验证
+
+本轮尚未提交、尚未推送，等待用户实机验证。建议重点验证：
+
+1. 首页不再显示“今日概览”文字卡。
+2. 从首页“今日复盘”卡进入复盘，与点击底栏“复盘”落到同一个一级 tab。
+3. 复盘 tab 模式不显示“返回”，保存按钮为“保存”，保存后留在复盘页并显示“已保存”。
+4. 从复盘历史进入指定日期复盘仍显示“返回”，保存按钮为“保存并返回”，保存后回历史列表。
+5. 从复盘历史页或指定日期复盘页点击底部“首页”，仍能回到首页顶部。
+6. 从待办/目标等 tab 点击底部“首页”，不会恢复到刚才的 tab。

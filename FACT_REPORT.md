@@ -12,7 +12,7 @@
 - 类型：Android 单机个人管理 App。
 - 包名：`com.jimu.app`。
 - 当前主模块：`app`。
-- 主要功能：待办、习惯、目标、已完成记录。
+- 主要功能：待办（含已完成记录）、习惯、目标、复盘。
 - 复盘当前状态：今日复盘闭环、历史回看和本地“今日成果草稿”已完成；用户可从首页进入今日复盘页，查看根据当前待办/习惯/目标整理的草稿，保存后回到首页查看三段摘要，也可进入历史列表并点击指定日期继续编辑。
 
 ## 当前技术事实
@@ -120,6 +120,15 @@ F:\jimuapp\app\build\outputs\apk\debug\app-debug.apk
 - T9 未改 Room schema，未写 migration，未新增 `completedAt`，未新增底部 tab，未改底部导航，未引入 AI 或云服务。
 - T9 验证：`testDebugUnitTest` 和 `assembleDebug` 已通过；真实手机体验验证通过。
 - T9 后修复底部首页 tab 状态恢复问题：从待办/目标等 tab 点击“首页”时，不再错误恢复到刚才的 tab；`TabNavigationPolicyTest` 已覆盖该回归，真实手机复测通过。
+- T10 已完成：底部第 5 栏从“已完成”改为“复盘”；`Routes.Review.title` 保持“今日复盘”，底栏显示 `tabTitle = "复盘"`。
+- T10 待办页新增 `今日 / 全部 / 已完成` 三段切换；已完成记录迁回待办页“已完成”分支，按天归档展示，并复用 `TasksViewModel.toggleTaskCompleted(task)` 回退。
+- T10 新增 `CompletedTaskGroups.kt`，将 `buildCompletedGroups(...)` 抽为可测纯函数，旧 `CompletedScreen.kt` 文件保留但不再作为底部 tab 注册。
+- T10 首页原“已完成”卡改为“完成节奏”卡，使用“当前已完成”保守口径，并展示当前待处理、目标推进和今日复盘状态；未引入“今日完成 / 本周完成”等基于 `updatedAt` 的时间统计。
+- T10 收尾已完成：首页“今日概览”复述卡已取消；首页“今日复盘”卡与底栏“复盘”入口共用一级 tab 导航，不再把复盘页作为二级页 push。
+- T10 `ReviewScreen` 已区分一级 tab 模式和历史日期二级页模式：一级 tab 模式隐藏返回按钮、保存按钮显示“保存”、保存后留在复盘页并显示“已保存”；历史日期模式保留返回按钮和“保存并返回”。
+- T10 旧 `CompletedScreen.kt` 内部的 `todayCount` / `weekCount` 和“今天完成 / 本周完成”统计病灶已清理，文件和 `CompletedViewModel` 均保留。
+- T10 未改 Room schema，未写 migration，未新增 `completedAt`，未引入 AI 或云服务。
+- T10 本地验证：`testDebugUnitTest` 和 `assembleDebug` 已通过；真实手机验证待用户执行。
 
 ## 当前数据库安全状态
 
@@ -139,7 +148,7 @@ F:\jimuapp\app\build\outputs\apk\debug\app-debug.apk
 - 数据层仍有唯一约束、外键、索引、显式事务和历史脏数据清理等后续安全债。
 - v4 旧库覆盖安装到 v5 的设备/模拟器回归尚未执行；当前限制是命令行 `adb` 不在 PATH。该限制不影响代码提交，但后续需要用 Android Studio 或配置 adb 后补测。
 - mood 输入、真实快照和复盘删除 UI 尚未实现；复盘历史列表已在 T8 完成。
-- 真实快照口径未定：`TaskEntity` 无 `completedAt`，`updatedAt` 会被完成/回退/编辑/改期污染，做待办完成数快照需先定口径（可能涉及 schema 变更）。T9 已通过“当前已完成”文案规避精确完成时间承诺。
+- 真实快照口径未定：`TaskEntity` 无 `completedAt`，`updatedAt` 会被完成/回退/编辑/改期污染，做待办完成数快照需先定口径（可能涉及 schema 变更）。T9 / T10 已通过“当前已完成”文案规避精确完成时间承诺。
 - T7 提醒已真机手测通过；但准点触发依赖三项设备侧条件——精确闹钟授权、关闭电池智能优化、通知音量非 0。
 - T7 非精确降级路径（未授予精确闹钟特殊访问时）不承诺严格准点。
 - 部分国产 ROM 的电池策略可能压制后台触发，需用户手动关闭电池优化或加白名单；当前未在代码中引导该项。

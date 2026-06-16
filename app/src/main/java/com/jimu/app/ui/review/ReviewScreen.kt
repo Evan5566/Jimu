@@ -21,8 +21,12 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -34,12 +38,14 @@ import com.jimu.app.data.repository.DailyDigestUiModel
 import com.jimu.app.viewmodel.ReviewFormUiState
 import com.jimu.app.viewmodel.ReviewViewModel
 import com.jimu.app.viewmodel.ReviewViewModelFactory
+import kotlinx.coroutines.delay
 import java.time.LocalDate
 
 @Composable
 fun ReviewScreen(
     innerPadding: PaddingValues,
     reviewDate: String = LocalDate.now().toString(),
+    isTopLevelTab: Boolean = false,
     onOpenHistory: () -> Unit,
     onBack: () -> Unit,
     onSaved: () -> Unit
@@ -57,6 +63,14 @@ fun ReviewScreen(
     val uiState by viewModel.uiState.collectAsState()
     val dailyDigest by viewModel.dailyDigest.collectAsState()
     val isTodayReview = uiState.reviewDate == LocalDate.now().toString()
+    var showSavedFeedback by remember { mutableStateOf(false) }
+
+    LaunchedEffect(showSavedFeedback) {
+        if (showSavedFeedback) {
+            delay(1800)
+            showSavedFeedback = false
+        }
+    }
 
     Scaffold(
         modifier = Modifier
@@ -79,7 +93,8 @@ fun ReviewScreen(
             ReviewHeader(
                 reviewDate = uiState.reviewDate,
                 onOpenHistory = onOpenHistory,
-                onBack = onBack
+                onBack = onBack,
+                showBackButton = reviewShowBackButton(isTopLevelTab)
             )
 
             if (isTodayReview) {
@@ -88,17 +103,47 @@ fun ReviewScreen(
 
             ReviewEditorCard(
                 uiState = uiState,
-                onSummaryChange = viewModel::onSummaryChange,
-                onProblemsChange = viewModel::onProblemsChange,
-                onTomorrowFocusChange = viewModel::onTomorrowFocusChange
+                onSummaryChange = {
+                    showSavedFeedback = false
+                    viewModel.onSummaryChange(it)
+                },
+                onProblemsChange = {
+                    showSavedFeedback = false
+                    viewModel.onProblemsChange(it)
+                },
+                onTomorrowFocusChange = {
+                    showSavedFeedback = false
+                    viewModel.onTomorrowFocusChange(it)
+                }
             )
 
             Button(
-                onClick = { viewModel.saveReview(onSaved) },
+                onClick = {
+                    showSavedFeedback = false
+                    viewModel.saveReview {
+                        if (isTopLevelTab) {
+                            showSavedFeedback = true
+                        }
+                        onSaved()
+                    }
+                },
                 enabled = uiState.canSave,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(if (uiState.isSaving) "保存中..." else "保存并返回")
+                Text(
+                    reviewSaveButtonText(
+                        isSaving = uiState.isSaving,
+                        isTopLevelTab = isTopLevelTab
+                    )
+                )
+            }
+
+            if (showSavedFeedback) {
+                Text(
+                    text = "已保存",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
             }
 
             if (!uiState.isLoading && uiState.summary.isBlank()) {
@@ -169,7 +214,8 @@ private fun DailyDigestCard(
 private fun ReviewHeader(
     reviewDate: String,
     onOpenHistory: () -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    showBackButton: Boolean
 ) {
     val isToday = reviewDate == LocalDate.now().toString()
 
@@ -196,11 +242,25 @@ private fun ReviewHeader(
             TextButton(onClick = onOpenHistory) {
                 Text("历史")
             }
-            TextButton(onClick = onBack) {
-                Text("返回")
+            if (showBackButton) {
+                TextButton(onClick = onBack) {
+                    Text("返回")
+                }
             }
         }
     }
+}
+
+internal fun reviewShowBackButton(isTopLevelTab: Boolean): Boolean {
+    return !isTopLevelTab
+}
+
+internal fun reviewSaveButtonText(
+    isSaving: Boolean,
+    isTopLevelTab: Boolean
+): String {
+    if (isSaving) return "保存中..."
+    return if (isTopLevelTab) "保存" else "保存并返回"
 }
 
 @Composable

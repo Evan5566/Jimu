@@ -145,26 +145,11 @@ private fun CompletedSummaryCard(
                 fontWeight = FontWeight.Bold
             )
 
-            Row(
+            SummaryMetricCard(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                SummaryMetricCard(
-                    modifier = Modifier.weight(1f),
-                    value = stats.totalCount.toString(),
-                    label = "累计完成"
-                )
-                SummaryMetricCard(
-                    modifier = Modifier.weight(1f),
-                    value = stats.todayCount.toString(),
-                    label = "今天完成"
-                )
-                SummaryMetricCard(
-                    modifier = Modifier.weight(1f),
-                    value = stats.weekCount.toString(),
-                    label = "本周完成"
-                )
-            }
+                value = stats.totalCount.toString(),
+                label = "累计完成"
+            )
 
             Surface(
                 shape = RoundedCornerShape(16.dp),
@@ -392,73 +377,6 @@ private fun CompletedTaskCard(
     }
 }
 
-private data class CompletedStats(
-    val totalCount: Int,
-    val todayCount: Int,
-    val weekCount: Int,
-    val latestText: String
-)
-
-private data class CompletedGroup(
-    val dayStart: Long,
-    val title: String,
-    val tasks: List<TaskEntity>
-)
-
-private fun buildCompletedStats(tasks: List<TaskEntity>): CompletedStats {
-    val now = System.currentTimeMillis()
-    val todayStart = startOfDay(now)
-    val weekStart = startOfWeek(now)
-
-    val totalCount = tasks.size
-    val todayCount = tasks.count { it.updatedAt >= todayStart }
-    val weekCount = tasks.count { it.updatedAt >= weekStart }
-
-    val latestText = tasks.firstOrNull()?.let {
-        "最近一次完成：${formatFullDateTime(it.updatedAt)}"
-    } ?: "最近还没有完成记录"
-
-    return CompletedStats(
-        totalCount = totalCount,
-        todayCount = todayCount,
-        weekCount = weekCount,
-        latestText = latestText
-    )
-}
-
-private fun buildCompletedGroups(tasks: List<TaskEntity>): List<CompletedGroup> {
-    if (tasks.isEmpty()) return emptyList()
-
-    val grouped = linkedMapOf<Long, MutableList<TaskEntity>>()
-
-    tasks.sortedByDescending { it.updatedAt }.forEach { task ->
-        val dayStart = startOfDay(task.updatedAt)
-        grouped.getOrPut(dayStart) { mutableListOf() }.add(task)
-    }
-
-    return grouped.entries
-        .sortedByDescending { it.key }
-        .map { entry ->
-            CompletedGroup(
-                dayStart = entry.key,
-                title = formatGroupTitle(entry.key),
-                tasks = entry.value
-            )
-        }
-}
-
-private fun formatGroupTitle(timestamp: Long): String {
-    val now = System.currentTimeMillis()
-    val todayStart = startOfDay(now)
-    val yesterdayStart = todayStart - 24L * 60L * 60L * 1000L
-
-    return when (timestamp) {
-        todayStart -> "今天"
-        yesterdayStart -> "昨天"
-        else -> SimpleDateFormat("M月d日", Locale.CHINA).format(Date(timestamp))
-    }
-}
-
 private fun formatTaskTime(timestamp: Long): String {
     return SimpleDateFormat("M月d日 HH:mm", Locale.CHINA).format(Date(timestamp))
 }
@@ -473,30 +391,4 @@ private fun formatShortDateTime(timestamp: Long): String {
     } else {
         SimpleDateFormat("M月d日 HH:mm", Locale.CHINA).format(Date(timestamp))
     }
-}
-
-private fun formatFullDateTime(timestamp: Long): String {
-    return SimpleDateFormat("M月d日 HH:mm", Locale.CHINA).format(Date(timestamp))
-}
-
-private fun startOfDay(timestamp: Long): Long {
-    return Calendar.getInstance().apply {
-        timeInMillis = timestamp
-        set(Calendar.HOUR_OF_DAY, 0)
-        set(Calendar.MINUTE, 0)
-        set(Calendar.SECOND, 0)
-        set(Calendar.MILLISECOND, 0)
-    }.timeInMillis
-}
-
-private fun startOfWeek(timestamp: Long): Long {
-    return Calendar.getInstance().apply {
-        firstDayOfWeek = Calendar.MONDAY
-        timeInMillis = timestamp
-        set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
-        set(Calendar.HOUR_OF_DAY, 0)
-        set(Calendar.MINUTE, 0)
-        set(Calendar.SECOND, 0)
-        set(Calendar.MILLISECOND, 0)
-    }.timeInMillis
 }

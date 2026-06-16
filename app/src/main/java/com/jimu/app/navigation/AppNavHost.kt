@@ -18,7 +18,6 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
 import androidx.navigation.compose.rememberNavController
 import com.jimu.app.ui.components.JimuBottomBar
-import com.jimu.app.ui.completed.CompletedScreen
 import com.jimu.app.ui.goals.GoalsScreen
 import com.jimu.app.ui.habits.HabitsScreen
 import com.jimu.app.ui.home.HomeScreen
@@ -35,13 +34,44 @@ fun AppNavHost() {
         Routes.Tasks,
         Routes.Habits,
         Routes.Goals,
-        Routes.Completed
+        Routes.Review
     )
 
     val navBackStackEntry = navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry.value?.destination
     val tabRoutes = remember(tabs) { tabs.map { route -> route.route }.toSet() }
     var homeResetScrollSignal by remember { mutableIntStateOf(0) }
+
+    fun navigateToTab(route: String) {
+        val currentRoute = currentDestination?.route
+        val shouldResetHomeScroll = shouldResetHomeScrollOnTabClick(
+            currentRoute = currentRoute,
+            targetRoute = route,
+            tabRoutes = tabRoutes
+        )
+        val shouldRestoreState = shouldRestoreTabState(
+            currentRoute = currentRoute,
+            targetRoute = route,
+            tabRoutes = tabRoutes
+        )
+        val shouldSaveState = shouldSaveTabState(
+            currentRoute = currentRoute,
+            targetRoute = route,
+            tabRoutes = tabRoutes
+        )
+
+        if (shouldResetHomeScroll) {
+            homeResetScrollSignal += 1
+        }
+
+        navController.navigate(route) {
+            popUpTo(navController.graph.findStartDestination().id) {
+                saveState = shouldSaveState
+            }
+            launchSingleTop = true
+            restoreState = shouldRestoreState
+        }
+    }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -50,36 +80,7 @@ fun AppNavHost() {
             JimuBottomBar(
                 tabs = tabs,
                 currentDestinationRoute = currentDestination?.route,
-                onTabClick = { route ->
-                    val currentRoute = currentDestination?.route
-                    val shouldResetHomeScroll = shouldResetHomeScrollOnTabClick(
-                        currentRoute = currentRoute,
-                        targetRoute = route,
-                        tabRoutes = tabRoutes
-                    )
-                    val shouldRestoreState = shouldRestoreTabState(
-                        currentRoute = currentRoute,
-                        targetRoute = route,
-                        tabRoutes = tabRoutes
-                    )
-                    val shouldSaveState = shouldSaveTabState(
-                        currentRoute = currentRoute,
-                        targetRoute = route,
-                        tabRoutes = tabRoutes
-                    )
-
-                    if (shouldResetHomeScroll) {
-                        homeResetScrollSignal += 1
-                    }
-
-                    navController.navigate(route) {
-                        popUpTo(navController.graph.findStartDestination().id) {
-                            saveState = shouldSaveState
-                        }
-                        launchSingleTop = true
-                        restoreState = shouldRestoreState
-                    }
-                }
+                onTabClick = { route -> navigateToTab(route) }
             )
         }
     ) { innerPadding: PaddingValues ->
@@ -93,9 +94,7 @@ fun AppNavHost() {
                     innerPadding = innerPadding,
                     resetScrollSignal = homeResetScrollSignal,
                     onOpenReview = {
-                        navController.navigate(Routes.Review.route) {
-                            launchSingleTop = true
-                        }
+                        navigateToTab(Routes.Review.route)
                     }
                 )
             }
@@ -108,12 +107,10 @@ fun AppNavHost() {
             composable(Routes.Goals.route) {
                 GoalsScreen(innerPadding)
             }
-            composable(Routes.Completed.route) {
-                CompletedScreen(innerPadding)
-            }
             composable(Routes.Review.route) {
                 ReviewScreen(
                     innerPadding = innerPadding,
+                    isTopLevelTab = true,
                     onOpenHistory = {
                         navController.navigate(Routes.ReviewHistory.route) {
                             launchSingleTop = true
@@ -122,12 +119,7 @@ fun AppNavHost() {
                     onBack = {
                         navController.popBackStack()
                     },
-                    onSaved = {
-                        navController.popBackStack(
-                            route = Routes.Home.route,
-                            inclusive = false
-                        )
-                    }
+                    onSaved = {}
                 )
             }
             composable(Routes.ReviewHistory.route) {

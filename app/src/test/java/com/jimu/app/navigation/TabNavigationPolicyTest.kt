@@ -1,5 +1,6 @@
 package com.jimu.app.navigation
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -11,14 +12,20 @@ class TabNavigationPolicyTest {
         Routes.Tasks.route,
         Routes.Habits.route,
         Routes.Goals.route,
-        Routes.Completed.route
+        Routes.Review.route
     )
 
     @Test
-    fun homeTabFromReviewRouteResetsHomeScrollAndDoesNotRestoreSavedState() {
+    fun reviewRouteKeepsPageTitleSeparateFromBottomTabTitle() {
+        assertEquals("今日复盘", Routes.Review.title)
+        assertEquals("复盘", Routes.Review.tabTitle)
+    }
+
+    @Test
+    fun homeTabFromReviewHistoryRouteResetsHomeScrollAndDoesNotRestoreSavedState() {
         assertTrue(
             shouldResetHomeScrollOnTabClick(
-                currentRoute = Routes.Review.route,
+                currentRoute = Routes.ReviewHistory.route,
                 targetRoute = Routes.Home.route,
                 tabRoutes = tabRoutes
             )
@@ -26,7 +33,7 @@ class TabNavigationPolicyTest {
 
         assertFalse(
             shouldRestoreTabState(
-                currentRoute = Routes.Review.route,
+                currentRoute = Routes.ReviewHistory.route,
                 targetRoute = Routes.Home.route,
                 tabRoutes = tabRoutes
             )
@@ -34,7 +41,7 @@ class TabNavigationPolicyTest {
 
         assertFalse(
             shouldSaveTabState(
-                currentRoute = Routes.Review.route,
+                currentRoute = Routes.ReviewHistory.route,
                 targetRoute = Routes.Home.route,
                 tabRoutes = tabRoutes
             )
@@ -82,6 +89,33 @@ class TabNavigationPolicyTest {
             shouldRestoreTabState(
                 currentRoute = Routes.Tasks.route,
                 targetRoute = Routes.Goals.route,
+                tabRoutes = tabRoutes
+            )
+        )
+    }
+
+    @Test
+    fun reviewTabFromHomeSavesAndRestoresLikeANormalTab() {
+        assertFalse(
+            shouldResetHomeScrollOnTabClick(
+                currentRoute = Routes.Home.route,
+                targetRoute = Routes.Review.route,
+                tabRoutes = tabRoutes
+            )
+        )
+
+        assertTrue(
+            shouldSaveTabState(
+                currentRoute = Routes.Home.route,
+                targetRoute = Routes.Review.route,
+                tabRoutes = tabRoutes
+            )
+        )
+
+        assertTrue(
+            shouldRestoreTabState(
+                currentRoute = Routes.Home.route,
+                targetRoute = Routes.Review.route,
                 tabRoutes = tabRoutes
             )
         )

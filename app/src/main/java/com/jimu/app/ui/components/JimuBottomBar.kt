@@ -11,6 +11,7 @@ import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Loop
+import androidx.compose.material.icons.outlined.RateReview
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -65,15 +66,15 @@ fun JimuBottomBar(
                                 is Routes.Habits -> Icons.Outlined.Loop
                                 is Routes.Goals -> Icons.Outlined.Flag
                                 is Routes.Completed -> Icons.Outlined.CheckCircle
-                                is Routes.Review -> Icons.Outlined.Home
+                                is Routes.Review -> Icons.Outlined.RateReview
                                 is Routes.ReviewHistory -> Icons.Outlined.Home
                                 is Routes.ReviewByDate -> Icons.Outlined.Home
                             },
-                            contentDescription = tab.title
+                            contentDescription = tab.tabTitle
                         )
                     },
                     label = {
-                        Text(text = tab.title)
+                        Text(text = tab.tabTitle)
                     }
                 )
             }

@@ -53,6 +53,43 @@ data class HomeTodayReviewUiModel(
     }
 }
 
+data class HomeCompletionPaceUiModel(
+    val title: String = "完成节奏",
+    val value: String,
+    val subtitle: String = "当前已完成",
+    val detailLines: List<String>
+) {
+    companion object {
+        fun from(
+            completedCount: Int,
+            todoCount: Int,
+            goalFocus: HomeGoalFocusUiModel,
+            todayReview: HomeTodayReviewUiModel
+        ): HomeCompletionPaceUiModel {
+            val goalLine = if (goalFocus.hasGoals) {
+                "目标推进 ${goalFocus.progress}%"
+            } else {
+                "目标未设置"
+            }
+
+            val reviewLine = if (todayReview.hasReview) {
+                "今日复盘已记录"
+            } else {
+                "今日复盘待记录"
+            }
+
+            return HomeCompletionPaceUiModel(
+                value = completedCount.toString(),
+                detailLines = listOf(
+                    "当前待处理 $todoCount 项",
+                    goalLine,
+                    reviewLine
+                )
+            )
+        }
+    }
+}
+
 class HomeViewModel(
     taskRepository: TaskRepository,
     goalRepository: GoalRepository,
