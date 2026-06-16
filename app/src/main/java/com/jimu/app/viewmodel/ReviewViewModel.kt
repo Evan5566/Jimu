@@ -42,14 +42,15 @@ data class ReviewFormUiState(
 }
 
 class ReviewViewModel(
-    private val reviewRepository: ReviewRepository
+    private val reviewRepository: ReviewRepository,
+    reviewDate: String = LocalDate.now().toString()
 ) : ViewModel() {
 
-    private val today = LocalDate.now().toString()
+    private val targetReviewDate = reviewDate.ifBlank { LocalDate.now().toString() }
 
     private val _uiState = MutableStateFlow(
         ReviewFormUiState(
-            reviewDate = today,
+            reviewDate = targetReviewDate,
             isLoading = true
         )
     )
@@ -68,7 +69,7 @@ class ReviewViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
 
     init {
-        loadTodayReview()
+        loadReview()
     }
 
     fun onSummaryChange(value: String) {
@@ -100,7 +101,8 @@ class ReviewViewModel(
             _uiState.value = current.copy(isSaving = true, saveError = null)
 
             runCatching {
-                reviewRepository.saveTodayReview(
+                reviewRepository.saveDailyReview(
+                    reviewDate = current.reviewDate,
                     summary = current.summary,
                     problems = current.problems,
                     tomorrowFocus = current.tomorrowFocus,
@@ -120,11 +122,11 @@ class ReviewViewModel(
         }
     }
 
-    private fun loadTodayReview() {
+    private fun loadReview() {
         viewModelScope.launch {
-            val review = reviewRepository.getReviewByDate(today)
+            val review = reviewRepository.getReviewByDate(targetReviewDate)
             _uiState.value = ReviewFormUiState.fromReview(
-                reviewDate = today,
+                reviewDate = targetReviewDate,
                 review = review
             )
         }
@@ -132,12 +134,16 @@ class ReviewViewModel(
 }
 
 class ReviewViewModelFactory(
-    private val reviewRepository: ReviewRepository
+    private val reviewRepository: ReviewRepository,
+    private val reviewDate: String = LocalDate.now().toString()
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(ReviewViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return ReviewViewModel(reviewRepository) as T
+            return ReviewViewModel(
+                reviewRepository = reviewRepository,
+                reviewDate = reviewDate
+            ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

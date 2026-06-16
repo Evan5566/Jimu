@@ -33,16 +33,23 @@ import com.jimu.app.JimuApp
 import com.jimu.app.viewmodel.ReviewFormUiState
 import com.jimu.app.viewmodel.ReviewViewModel
 import com.jimu.app.viewmodel.ReviewViewModelFactory
+import java.time.LocalDate
 
 @Composable
 fun ReviewScreen(
     innerPadding: PaddingValues,
+    reviewDate: String = LocalDate.now().toString(),
+    onOpenHistory: () -> Unit,
     onBack: () -> Unit,
     onSaved: () -> Unit
 ) {
     val app = LocalContext.current.applicationContext as JimuApp
     val viewModel: ReviewViewModel = viewModel(
-        factory = ReviewViewModelFactory(app.reviewRepository)
+        key = "review-$reviewDate",
+        factory = ReviewViewModelFactory(
+            reviewRepository = app.reviewRepository,
+            reviewDate = reviewDate
+        )
     )
 
     val uiState by viewModel.uiState.collectAsState()
@@ -67,6 +74,7 @@ fun ReviewScreen(
         ) {
             ReviewHeader(
                 reviewDate = uiState.reviewDate,
+                onOpenHistory = onOpenHistory,
                 onBack = onBack
             )
 
@@ -82,7 +90,7 @@ fun ReviewScreen(
                 enabled = uiState.canSave,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(if (uiState.isSaving) "保存中..." else "保存并返回首页")
+                Text(if (uiState.isSaving) "保存中..." else "保存并返回")
             }
 
             if (!uiState.isLoading && uiState.summary.isBlank()) {
@@ -109,8 +117,11 @@ fun ReviewScreen(
 @Composable
 private fun ReviewHeader(
     reviewDate: String,
+    onOpenHistory: () -> Unit,
     onBack: () -> Unit
 ) {
+    val isToday = reviewDate == LocalDate.now().toString()
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -118,20 +129,25 @@ private fun ReviewHeader(
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(
-                text = "今日复盘",
+                text = if (isToday) "今日复盘" else "复盘记录",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
             )
             Text(
-                text = "今天：$reviewDate",
+                text = if (isToday) "今天：$reviewDate" else "日期：$reviewDate",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
-        TextButton(onClick = onBack) {
-            Text("返回")
+        Row {
+            TextButton(onClick = onOpenHistory) {
+                Text("历史")
+            }
+            TextButton(onClick = onBack) {
+                Text("返回")
+            }
         }
     }
 }
@@ -155,7 +171,7 @@ private fun ReviewEditorCard(
         ) {
             if (uiState.isLoading) {
                 Text(
-                    text = "正在读取今日复盘...",
+                    text = "正在读取复盘...",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

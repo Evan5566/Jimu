@@ -1,12 +1,33 @@
 package com.jimu.app.viewmodel
 
+import com.jimu.app.data.local.dao.ReviewDao
 import com.jimu.app.data.local.entity.ReviewEntity
+import com.jimu.app.data.repository.ReviewRepository
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TestWatcher
+import org.junit.runner.Description
+import java.time.LocalDate
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class ReviewViewModelTest {
+
+    @get:Rule
+    val mainDispatcherRule = ReviewMainDispatcherRule()
 
     @Test
     fun reviewFormStateDisablesSavingWhenSummaryIsBlank() {
@@ -51,5 +72,94 @@ class ReviewViewModelTest {
         assertEquals("还没有设备回归", state.problems)
         assertEquals("补手测", state.tomorrowFocus)
         assertTrue(state.canSave)
+    }
+
+    @Test
+    fun saveReviewPersistsSelectedDateInsteadOfToday() = runTest {
+        val dao = ReviewViewModelFakeReviewDao()
+        val repository = ReviewRepository(dao)
+        val selectedDate = "2026-06-14"
+        val today = LocalDate.now().toString()
+
+        val viewModel = ReviewViewModel(
+            reviewRepository = repository,
+            reviewDate = selectedDate
+        )
+        advanceUntilIdle()
+
+        viewModel.onSummaryChange("修改旧复盘")
+        viewModel.onProblemsChange("不能写到今天")
+        viewModel.onTomorrowFocusChange("继续发布准备")
+        var saved = false
+
+        viewModel.saveReview {
+            saved = true
+        }
+        advanceUntilIdle()
+
+        val selectedReview = dao.getReviewByDate(selectedDate)
+        val todayReview = dao.getReviewByDate(today)
+
+        assertTrue(saved)
+        assertNotNull(selectedReview)
+        assertEquals("修改旧复盘", selectedReview!!.summary)
+        assertEquals("不能写到今天", selectedReview.problems)
+        assertEquals("继续发布准备", selectedReview.tomorrowFocus)
+        if (selectedDate != today) {
+            assertNull(todayReview)
+        }
+    }
+}
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class ReviewMainDispatcherRule(
+    private val dispatcher: TestDispatcher = StandardTestDispatcher()
+) : TestWatcher() {
+    override fun starting(description: Description) {
+        kotlinx.coroutines.Dispatchers.setMain(dispatcher)
+    }
+
+    override fun finished(description: Description) {
+        kotlinx.coroutines.Dispatchers.resetMain()
+    }
+}
+
+private class ReviewViewModelFakeReviewDao : ReviewDao {
+    private val reviews = mutableListOf<ReviewEntity>()
+    private val reviewsFlow = MutableStateFlow<List<ReviewEntity>>(emptyList())
+    private var nextId = 1L
+
+    override fun observeAllReviews(): Flow<List<ReviewEntity>> = reviewsFlow
+
+    override suspend fun getReviewByDate(reviewDate: String): ReviewEntity? {
+        return reviews.firstOrNull { review ->
+            review.reviewDate == reviewDate && review.type == "daily"
+        }
+    }
+
+    override suspend fun insertReview(review: ReviewEntity): Long {
+        val id = if (review.id == 0L) nextId++ else review.id
+        reviews.add(review.copy(id = id))
+        publish()
+        return id
+    }
+
+    override suspend fun updateReview(review: ReviewEntity) {
+        val index = reviews.indexOfFirst { it.id == review.id }
+        if (index >= 0) {
+            reviews[index] = review
+        } else {
+            reviews.add(review)
+        }
+        publish()
+    }
+
+    override suspend fun deleteReview(review: ReviewEntity) {
+        reviews.removeAll { it.id == review.id }
+        publish()
+    }
+
+    private fun publish() {
+        reviewsFlow.value = reviews.toList()
     }
 }

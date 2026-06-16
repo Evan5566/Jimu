@@ -3,6 +3,7 @@ package com.jimu.app.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.jimu.app.data.local.entity.ReviewEntity
 import com.jimu.app.data.repository.GoalRepository
 import com.jimu.app.data.repository.GoalUiModel
 import com.jimu.app.data.repository.ReviewRepository
@@ -29,10 +30,27 @@ data class HomeGoalFocusUiModel(
 data class HomeTodayReviewUiModel(
     val reviewDate: String = LocalDate.now().toString(),
     val hasReview: Boolean = false,
-    val summary: String = ""
+    val summary: String = "",
+    val problems: String = "",
+    val tomorrowFocus: String = ""
 ) {
     val displaySummary: String
         get() = summary.ifBlank { "今日复盘已保存。" }
+
+    companion object {
+        fun fromReview(
+            reviewDate: String,
+            review: ReviewEntity?
+        ): HomeTodayReviewUiModel {
+            return HomeTodayReviewUiModel(
+                reviewDate = reviewDate,
+                hasReview = review != null,
+                summary = review?.summary?.trim().orEmpty(),
+                problems = review?.problems?.trim().orEmpty(),
+                tomorrowFocus = review?.tomorrowFocus?.trim().orEmpty()
+            )
+        }
+    }
 }
 
 class HomeViewModel(
@@ -92,10 +110,9 @@ class HomeViewModel(
                 }
                 .maxByOrNull { review -> review.updatedAt }
 
-            HomeTodayReviewUiModel(
+            HomeTodayReviewUiModel.fromReview(
                 reviewDate = today,
-                hasReview = review != null,
-                summary = review?.summary?.trim().orEmpty()
+                review = review
             )
         }
         .stateIn(

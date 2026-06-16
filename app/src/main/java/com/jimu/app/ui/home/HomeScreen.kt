@@ -40,6 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -59,6 +60,7 @@ import com.jimu.app.voice.VoiceInputTarget
 @Composable
 fun HomeScreen(
     innerPadding: PaddingValues,
+    resetScrollSignal: Int = 0,
     onOpenReview: () -> Unit
 ) {
     val context = LocalContext.current
@@ -92,6 +94,7 @@ fun HomeScreen(
     var showVoiceSheet by remember { mutableStateOf(false) }
     var showVoiceTargetMenu by remember { mutableStateOf(false) }
     var selectedVoiceTarget by remember { mutableStateOf(VoiceInputTarget.TASK) }
+    val scrollState = rememberScrollState()
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -125,6 +128,12 @@ fun HomeScreen(
 
     LaunchedEffect(Unit) {
         visible = true
+    }
+
+    LaunchedEffect(resetScrollSignal) {
+        if (resetScrollSignal > 0) {
+            scrollState.scrollTo(0)
+        }
     }
 
     Scaffold(
@@ -188,7 +197,7 @@ fun HomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scrollState)
                 .padding(
                     start = 16.dp,
                     end = 16.dp,
@@ -363,10 +372,8 @@ private fun TodayReviewCard(
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (review.hasReview) {
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.06f)
-            } else {
-                MaterialTheme.colorScheme.surface
+            containerColor = when (todayReviewCardContainerStyle(review.hasReview)) {
+                TodayReviewCardContainerStyle.Neutral -> MaterialTheme.colorScheme.surface
             }
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -414,9 +421,42 @@ private fun TodayReviewCard(
                     "写下今天做得好的事，收个口，也给明天留一个清晰重点。"
                 },
                 style = MaterialTheme.typography.bodyMedium,
+                maxLines = if (review.hasReview) 2 else Int.MAX_VALUE,
+                overflow = TextOverflow.Ellipsis,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+
+            if (review.hasReview && review.problems.isNotBlank()) {
+                Text(
+                    text = "遇到的问题：${review.problems}",
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            if (review.hasReview && review.tomorrowFocus.isNotBlank()) {
+                Text(
+                    text = "明日重点：${review.tomorrowFocus}",
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
+    }
+}
+
+internal enum class TodayReviewCardContainerStyle {
+    Neutral
+}
+
+internal fun todayReviewCardContainerStyle(hasReview: Boolean): TodayReviewCardContainerStyle {
+    return when (hasReview) {
+        true -> TodayReviewCardContainerStyle.Neutral
+        false -> TodayReviewCardContainerStyle.Neutral
     }
 }
 
