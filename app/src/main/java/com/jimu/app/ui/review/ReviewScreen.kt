@@ -30,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jimu.app.JimuApp
+import com.jimu.app.data.repository.DailyDigestUiModel
 import com.jimu.app.viewmodel.ReviewFormUiState
 import com.jimu.app.viewmodel.ReviewViewModel
 import com.jimu.app.viewmodel.ReviewViewModelFactory
@@ -48,11 +49,14 @@ fun ReviewScreen(
         key = "review-$reviewDate",
         factory = ReviewViewModelFactory(
             reviewRepository = app.reviewRepository,
+            dailyDigestRepository = app.dailyDigestRepository,
             reviewDate = reviewDate
         )
     )
 
     val uiState by viewModel.uiState.collectAsState()
+    val dailyDigest by viewModel.dailyDigest.collectAsState()
+    val isTodayReview = uiState.reviewDate == LocalDate.now().toString()
 
     Scaffold(
         modifier = Modifier
@@ -77,6 +81,10 @@ fun ReviewScreen(
                 onOpenHistory = onOpenHistory,
                 onBack = onBack
             )
+
+            if (isTodayReview) {
+                DailyDigestCard(dailyDigest = dailyDigest)
+            }
 
             ReviewEditorCard(
                 uiState = uiState,
@@ -110,6 +118,49 @@ fun ReviewScreen(
             }
 
             Spacer(modifier = Modifier.height(24.dp))
+        }
+    }
+}
+
+@Composable
+private fun DailyDigestCard(
+    dailyDigest: DailyDigestUiModel
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.34f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(
+                    text = dailyDigest.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = dailyDigest.note,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                dailyDigest.summaryLines.forEach { line ->
+                    Text(
+                        text = "· $line",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
         }
     }
 }

@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.jimu.app.data.local.entity.ReviewEntity
+import com.jimu.app.data.repository.DailyDigestRepository
+import com.jimu.app.data.repository.DailyDigestUiModel
 import com.jimu.app.data.repository.ReviewRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -43,6 +45,7 @@ data class ReviewFormUiState(
 
 class ReviewViewModel(
     private val reviewRepository: ReviewRepository,
+    dailyDigestRepository: DailyDigestRepository? = null,
     reviewDate: String = LocalDate.now().toString()
 ) : ViewModel() {
 
@@ -67,6 +70,15 @@ class ReviewViewModel(
     val tomorrowFocus: StateFlow<String> = _uiState
         .map { state -> state.tomorrowFocus }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
+
+    val dailyDigest: StateFlow<DailyDigestUiModel> = dailyDigestRepository
+        ?.observeDailyDigest()
+        ?.stateIn(
+            viewModelScope,
+            SharingStarted.Eagerly,
+            DailyDigestUiModel.empty(targetReviewDate)
+        )
+        ?: MutableStateFlow(DailyDigestUiModel.empty(targetReviewDate))
 
     init {
         loadReview()
@@ -135,6 +147,7 @@ class ReviewViewModel(
 
 class ReviewViewModelFactory(
     private val reviewRepository: ReviewRepository,
+    private val dailyDigestRepository: DailyDigestRepository? = null,
     private val reviewDate: String = LocalDate.now().toString()
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -142,6 +155,7 @@ class ReviewViewModelFactory(
             @Suppress("UNCHECKED_CAST")
             return ReviewViewModel(
                 reviewRepository = reviewRepository,
+                dailyDigestRepository = dailyDigestRepository,
                 reviewDate = reviewDate
             ) as T
         }

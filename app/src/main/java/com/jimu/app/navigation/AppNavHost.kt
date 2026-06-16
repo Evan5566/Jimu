@@ -62,6 +62,11 @@ fun AppNavHost() {
                         targetRoute = route,
                         tabRoutes = tabRoutes
                     )
+                    val shouldSaveState = shouldSaveTabState(
+                        currentRoute = currentRoute,
+                        targetRoute = route,
+                        tabRoutes = tabRoutes
+                    )
 
                     if (shouldResetHomeScroll) {
                         homeResetScrollSignal += 1
@@ -69,7 +74,7 @@ fun AppNavHost() {
 
                     navController.navigate(route) {
                         popUpTo(navController.graph.findStartDestination().id) {
-                            saveState = shouldRestoreState
+                            saveState = shouldSaveState
                         }
                         launchSingleTop = true
                         restoreState = shouldRestoreState

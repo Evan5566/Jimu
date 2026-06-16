@@ -13,7 +13,7 @@
 - 包名：`com.jimu.app`。
 - 当前主模块：`app`。
 - 主要功能：待办、习惯、目标、已完成记录。
-- 复盘当前状态：今日复盘闭环和历史回看已完成；用户可从首页进入今日复盘页，保存后回到首页查看三段摘要，也可进入历史列表并点击指定日期继续编辑。
+- 复盘当前状态：今日复盘闭环、历史回看和本地“今日成果草稿”已完成；用户可从首页进入今日复盘页，查看根据当前待办/习惯/目标整理的草稿，保存后回到首页查看三段摘要，也可进入历史列表并点击指定日期继续编辑。
 
 ## 当前技术事实
 
@@ -24,6 +24,7 @@
 - 语音识别：Android 系统 `SpeechRecognizer`。
 - 任务语音解析：本地规则解析 `MockTaskParseRepository`。
 - 复盘数据层：`daily_reviews` / `ReviewEntity` / `ReviewDao` / `ReviewRepository`。
+- 复盘草稿层：`DailyDigestRepository` / `DailyDigestBuilder` / `DailyDigestUiModel`，只聚合现有待办、习惯和目标数据，不写入复盘数据库。
 - 复盘界面层：首页“今日复盘”卡片 / `ReviewScreen` / `ReviewViewModel` / `ReviewHistoryScreen` / `ReviewHistoryViewModel`。
 - 当前未发现 Java 源文件。
 - 当前未发现 XML layout 页面。
@@ -52,7 +53,7 @@ C:\Users\Evan\.jdks\zulu21.50.19-ca-jdk21.0.11-win_x64\zulu21.50.19-ca-jdk21.0.1
 最近一次构建结果：
 
 ```text
-BUILD SUCCESSFUL in 7s
+BUILD SUCCESSFUL in 6s
 ```
 
 APK 输出路径：
@@ -109,6 +110,16 @@ F:\jimuapp\app\build\outputs\apk\debug\app-debug.apk
 - T8 新增底部 tab 导航策略：从复盘等非 tab 页面点击底部“首页”时回到首页顶部；底部导航仍保持 5 个 tab。
 - T8 未改 Room schema，未写 migration，未新增第 6 个底部 tab，未做 mood、真实快照、复盘删除、统计图表或 AI 总结。
 - T8 验证：`testDebugUnitTest` 和 `assembleDebug` 已通过；真实手机测试通过；已推送到 `origin/main`。
+- T9 已完成：本地复盘草稿 MVP。
+- T9 新增 `DailyDigestRepository` / `DailyDigestBuilder` / `DailyDigestUiModel`，通过现有 `TaskRepository`、`HabitRepository`、`GoalRepository` 的 Flow 聚合数据。
+- T9 今日成果草稿当前展示四类信息：当前已完成待办概览、今日习惯打卡概览、当前目标步骤推进、今日/逾期未完成提醒。
+- T9 待办文案使用“当前已完成”口径，不声称“今天完成”，避免因缺少 `completedAt` 而误导用户。
+- T9 目标文案使用“当前目标推进”口径，不声称“今日推进”，避免因 `GoalStepEntity` 缺少完成时间而误导用户。
+- T9 `ReviewViewModel` 暴露 `dailyDigest` 状态；保存复盘仍按原逻辑调用 `saveDailyReview(...)`，`completedTaskSnapshot` 和 `checkedHabitSnapshot` 仍保持 0。
+- T9 `ReviewScreen` 仅在今日复盘页顶部展示“今日成果草稿”；编辑历史日期复盘时不展示今天的草稿。
+- T9 未改 Room schema，未写 migration，未新增 `completedAt`，未新增底部 tab，未改底部导航，未引入 AI 或云服务。
+- T9 验证：`testDebugUnitTest` 和 `assembleDebug` 已通过；真实手机体验验证通过。
+- T9 后修复底部首页 tab 状态恢复问题：从待办/目标等 tab 点击“首页”时，不再错误恢复到刚才的 tab；`TabNavigationPolicyTest` 已覆盖该回归，真实手机复测通过。
 
 ## 当前数据库安全状态
 
@@ -128,7 +139,7 @@ F:\jimuapp\app\build\outputs\apk\debug\app-debug.apk
 - 数据层仍有唯一约束、外键、索引、显式事务和历史脏数据清理等后续安全债。
 - v4 旧库覆盖安装到 v5 的设备/模拟器回归尚未执行；当前限制是命令行 `adb` 不在 PATH。该限制不影响代码提交，但后续需要用 Android Studio 或配置 adb 后补测。
 - mood 输入、真实快照和复盘删除 UI 尚未实现；复盘历史列表已在 T8 完成。
-- 真实快照口径未定：`TaskEntity` 无 `completedAt`，`updatedAt` 会被完成/回退/编辑/改期污染，做待办完成数快照需先定口径（可能涉及 schema 变更）。
+- 真实快照口径未定：`TaskEntity` 无 `completedAt`，`updatedAt` 会被完成/回退/编辑/改期污染，做待办完成数快照需先定口径（可能涉及 schema 变更）。T9 已通过“当前已完成”文案规避精确完成时间承诺。
 - T7 提醒已真机手测通过；但准点触发依赖三项设备侧条件——精确闹钟授权、关闭电池智能优化、通知音量非 0。
 - T7 非精确降级路径（未授予精确闹钟特殊访问时）不承诺严格准点。
 - 部分国产 ROM 的电池策略可能压制后台触发，需用户手动关闭电池优化或加白名单；当前未在代码中引导该项。

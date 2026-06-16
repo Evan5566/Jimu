@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.room.Room
 import com.jimu.app.data.local.AppDatabase
 import com.jimu.app.data.local.MIGRATION_4_5
+import com.jimu.app.data.repository.DailyDigestRepository
 import com.jimu.app.data.repository.GoalRepository
 import com.jimu.app.data.repository.HabitRepository
 import com.jimu.app.data.repository.ReviewRepository
@@ -34,6 +35,9 @@ class JimuApp : Application() {
     lateinit var reviewRepository: ReviewRepository
         private set
 
+    lateinit var dailyDigestRepository: DailyDigestRepository
+        private set
+
     lateinit var taskReminderScheduler: TaskReminderScheduler
         private set
 
@@ -55,6 +59,11 @@ class JimuApp : Application() {
         habitRepository = HabitRepository(database.habitDao())
         goalRepository = GoalRepository(database.goalDao())
         reviewRepository = ReviewRepository(database.reviewDao())
+        dailyDigestRepository = DailyDigestRepository(
+            taskRepository = taskRepository,
+            habitRepository = habitRepository,
+            goalRepository = goalRepository
+        )
 
         restoreFutureTaskRemindersAsync()
     }

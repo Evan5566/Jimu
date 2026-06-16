@@ -31,10 +31,18 @@ class TabNavigationPolicyTest {
                 tabRoutes = tabRoutes
             )
         )
+
+        assertFalse(
+            shouldSaveTabState(
+                currentRoute = Routes.Review.route,
+                targetRoute = Routes.Home.route,
+                tabRoutes = tabRoutes
+            )
+        )
     }
 
     @Test
-    fun homeTabFromAnotherTabKeepsSavedState() {
+    fun homeTabFromAnotherTabSavesCurrentTabButDoesNotRestoreHomeState() {
         assertFalse(
             shouldResetHomeScrollOnTabClick(
                 currentRoute = Routes.Tasks.route,
@@ -44,9 +52,36 @@ class TabNavigationPolicyTest {
         )
 
         assertTrue(
+            shouldSaveTabState(
+                currentRoute = Routes.Tasks.route,
+                targetRoute = Routes.Home.route,
+                tabRoutes = tabRoutes
+            )
+        )
+
+        assertFalse(
             shouldRestoreTabState(
                 currentRoute = Routes.Tasks.route,
                 targetRoute = Routes.Home.route,
+                tabRoutes = tabRoutes
+            )
+        )
+    }
+
+    @Test
+    fun nonHomeTabFromAnotherTabSavesAndRestoresTabState() {
+        assertTrue(
+            shouldSaveTabState(
+                currentRoute = Routes.Tasks.route,
+                targetRoute = Routes.Goals.route,
+                tabRoutes = tabRoutes
+            )
+        )
+
+        assertTrue(
+            shouldRestoreTabState(
+                currentRoute = Routes.Tasks.route,
+                targetRoute = Routes.Goals.route,
                 tabRoutes = tabRoutes
             )
         )

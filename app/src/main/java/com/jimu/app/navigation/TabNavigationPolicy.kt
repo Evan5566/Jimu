@@ -19,5 +19,21 @@ internal fun shouldRestoreTabState(
         return false
     }
 
-    return currentRoute in tabRoutes
+    if (targetRoute == Routes.Home.route) {
+        return false
+    }
+
+    return currentRoute in tabRoutes && targetRoute in tabRoutes
+}
+
+internal fun shouldSaveTabState(
+    currentRoute: String?,
+    targetRoute: String,
+    tabRoutes: Set<String>
+): Boolean {
+    if (shouldResetHomeScrollOnTabClick(currentRoute, targetRoute, tabRoutes)) {
+        return false
+    }
+
+    return currentRoute in tabRoutes && targetRoute in tabRoutes && currentRoute != targetRoute
 }

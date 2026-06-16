@@ -2,6 +2,8 @@ package com.jimu.app.viewmodel
 
 import com.jimu.app.data.local.dao.ReviewDao
 import com.jimu.app.data.local.entity.ReviewEntity
+import com.jimu.app.data.local.entity.TaskEntity
+import com.jimu.app.data.repository.DailyDigestRepository
 import com.jimu.app.data.repository.ReviewRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -108,6 +110,45 @@ class ReviewViewModelTest {
         if (selectedDate != today) {
             assertNull(todayReview)
         }
+    }
+
+    @Test
+    fun dailyDigestStateLoadsFromDigestRepositoryWithoutChangingSavePayload() = runTest {
+        val dao = ReviewViewModelFakeReviewDao()
+        val repository = ReviewRepository(dao)
+        val tasksFlow = MutableStateFlow(
+            listOf(
+                TaskEntity(id = 1L, title = "完成 T9 草稿", isCompleted = true)
+            )
+        )
+        val digestRepository = DailyDigestRepository(
+            tasks = tasksFlow,
+            habits = MutableStateFlow(emptyList()),
+            goals = MutableStateFlow(emptyList()),
+            todayProvider = { LocalDate.of(2026, 6, 16) }
+        )
+
+        val viewModel = ReviewViewModel(
+            reviewRepository = repository,
+            dailyDigestRepository = digestRepository,
+            reviewDate = "2026-06-16"
+        )
+        advanceUntilIdle()
+
+        assertEquals(
+            "当前已完成 1 项待办：完成 T9 草稿。",
+            viewModel.dailyDigest.value.taskOverview
+        )
+
+        viewModel.onSummaryChange("手填复盘内容")
+        viewModel.saveReview {}
+        advanceUntilIdle()
+
+        val savedReview = dao.getReviewByDate("2026-06-16")
+        assertNotNull(savedReview)
+        assertEquals("手填复盘内容", savedReview!!.summary)
+        assertEquals(0, savedReview.completedTaskSnapshot)
+        assertEquals(0, savedReview.checkedHabitSnapshot)
     }
 }
 

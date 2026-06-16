@@ -890,3 +890,141 @@ BUILD SUCCESSFUL in 7s
 - mood 输入、真实快照、复盘删除、统计图表、AI 总结仍不在当前版本范围内。
 - 真实快照仍需先定义口径，尤其是待办完成数不能直接依赖 `updatedAt`。
 - 下一阶段继续转向发布准备：App 图标、release 签名、深色模式、Typography、启动画面、删除确认、权限/隐私说明和数据导出导入。
+
+## 2026-06-16 - T9 本地复盘草稿 MVP
+
+### 任务范围
+
+执行 T9：在不修改数据库、不新增底部 tab、不引入 AI 或云服务的前提下，用现有待办、习惯和目标数据生成本地“今日成果草稿”，并展示在今日复盘页顶部，辅助用户填写三段手填复盘。
+
+本次不新增 `completedAt`，不升级 Room version，不写 migration，不改 `ReviewEntity` / `ReviewDao` / `ReviewRepository`，不改底部导航，不删除“已完成”页，不做周报、统计图、AI 总结、复盘删除或复杂模板。
+
+### 修改文件
+
+- `app/src/main/java/com/jimu/app/data/repository/DailyDigestRepository.kt`
+- `app/src/main/java/com/jimu/app/JimuApp.kt`
+- `app/src/main/java/com/jimu/app/viewmodel/ReviewViewModel.kt`
+- `app/src/main/java/com/jimu/app/ui/review/ReviewScreen.kt`
+- `app/src/test/java/com/jimu/app/data/repository/DailyDigestBuilderTest.kt`
+- `app/src/test/java/com/jimu/app/viewmodel/ReviewViewModelTest.kt`
+- `AI_PLAN.md`
+- `FACT_REPORT.md`
+- `DEV_LOG.md`
+
+### 修改内容
+
+- 新增 `DailyDigestUiModel`，作为复盘草稿 UI 模型，不暴露 Room Entity。
+- 新增 `DailyDigestBuilder`，将核心聚合和文案生成放在纯函数里，便于单元测试。
+- 新增 `DailyDigestRepository`，通过现有 `TaskRepository.observeAllTasks()`、`HabitRepository.observeHabitUiModels()`、`GoalRepository.observeGoalUiModels()` 合并生成 `Flow<DailyDigestUiModel>`。
+- 待办草稿使用“当前已完成 X 项待办”口径，不声称“今天完成”，避免 `TaskEntity` 缺少 `completedAt` 导致误导。
+- 习惯草稿使用 `checkedToday`，其底层仍来自 `recordDate == LocalDate.now().toString()`。
+- 目标草稿使用“当前目标推进 X/Y 个步骤”，不声称“今日推进”，避免 `GoalStepEntity` 缺少独立完成时间导致误导。
+- 未完成提醒聚合今日待处理和逾期未完成待办。
+- `JimuApp` 初始化并暴露 `dailyDigestRepository`。
+- `ReviewViewModel` 新增 `dailyDigest` 状态；保存复盘逻辑保持原样，`completedTaskSnapshot` 和 `checkedHabitSnapshot` 继续写 0。
+- `ReviewScreen` 在今日复盘页标题下方、输入表单上方展示“今日成果草稿”卡片；编辑历史日期复盘时不展示今天的草稿，避免上下文误导。
+- 草稿卡片文案包含“根据当前数据整理，供参考，不代表精准统计。”，避免把近似数据包装成严肃统计。
+- 无数据时展示空状态：“今天还没有可整理的成果，先完成一个待办或打卡一个习惯。”
+
+### TDD 验证记录
+
+先写 `DailyDigestBuilderTest` 和 `ReviewViewModelTest` 后运行：
+
+```powershell
+.\gradlew.bat testDebugUnitTest --tests com.jimu.app.data.repository.DailyDigestBuilderTest --tests com.jimu.app.viewmodel.ReviewViewModelTest
+```
+
+预期红灯包括：
+
+```text
+Unresolved reference: DailyDigestBuilder
+Unresolved reference: DailyDigestRepository
+Cannot find a parameter with this name: dailyDigestRepository
+Unresolved reference: dailyDigest
+```
+
+实现后再次运行同一组测试，结果：
+
+```text
+BUILD SUCCESSFUL in 10s
+```
+
+### 最终验证
+
+运行完整本地单元测试和 Debug 构建：
+
+```powershell
+.\gradlew.bat testDebugUnitTest assembleDebug
+```
+
+结果：
+
+```text
+BUILD SUCCESSFUL in 28s
+```
+
+### 实机验证结论
+
+用户已在真实手机完成 T9 验证，结论为功能全部 OK。已确认：
+
+- 今日复盘页顶部是否出现“今日成果草稿”。
+- 有待办、习惯、目标数据时，草稿是否能展示四类信息。
+- 没有数据时是否显示友好空状态。
+- 草稿是否没有直接覆盖三段手填输入。
+- 保存复盘后是否仍能回到首页并显示手填摘要。
+- 历史复盘编辑页是否不展示今天的草稿。
+
+## 2026-06-16 - 修复底部首页 tab 恢复到错误页面
+
+### 问题现象
+
+T9 实机验证通过后，用户发现一个底部导航问题：在待办 tab 添加待办后点击底部“首页”，页面会跳回待办页；重启 App 后如果先到目标页添加目标和步骤，点击“首页”又会回到目标页，表现为“首页像是被当前 tab 替换了”。
+
+### 根因
+
+T8 新增底部 tab 状态恢复策略时，将 `popUpTo.saveState` 和 `navigate.restoreState` 共用同一个 `shouldRestoreState` 判断。普通 tab 切换需要保存/恢复状态，但“首页”是 `NavHost` 的 start destination，点击首页时不应启用 `restoreState`；否则系统可能恢复出之前保存的待办/目标 tab 状态，让首页按钮表现成刚才操作过的 tab。
+
+### 修改内容
+
+- 在 `TabNavigationPolicy` 中拆分 `shouldSaveTabState` 和 `shouldRestoreTabState`：
+  - 从待办/目标等 tab 回首页时，可以保存当前 tab 状态。
+  - 但目标是首页时，不恢复目标状态，确保真正回到 `Routes.Home`。
+  - 从复盘等非 tab 页面回首页时，仍不保存也不恢复，并继续触发首页滚动到顶部。
+- `AppNavHost` 分别使用 `shouldSaveTabState` 控制 `popUpTo.saveState`，使用 `shouldRestoreTabState` 控制 `navigate.restoreState`。
+- 更新 `TabNavigationPolicyTest`，覆盖“从待办到首页不恢复首页状态”和“普通非首页 tab 切换仍保存/恢复状态”。
+
+### TDD 验证记录
+
+先改测试后运行：
+
+```powershell
+.\gradlew.bat testDebugUnitTest --tests com.jimu.app.navigation.TabNavigationPolicyTest
+```
+
+预期红灯：
+
+```text
+Unresolved reference: shouldSaveTabState
+```
+
+实现策略拆分后再次运行同一测试，结果：
+
+```text
+BUILD SUCCESSFUL in 13s
+```
+
+### 最终验证与实机复测
+
+运行完整本地单元测试和 Debug 构建：
+
+```powershell
+.\gradlew.bat testDebugUnitTest assembleDebug
+```
+
+结果：
+
+```text
+BUILD SUCCESSFUL in 10s
+```
+
+用户已在真实手机复测，底部“首页”tab 能从待办、目标等页面正常回到真正首页，T9 相关功能全部 OK。T9 可以收口。
