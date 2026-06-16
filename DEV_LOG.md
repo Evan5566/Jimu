@@ -781,3 +781,112 @@ BUILD SUCCESSFUL
 ### 下一步
 
 T7 收口完成。下一步交给 Opus 4.8 判断 T8 复盘增强切分，优先历史复盘列表；真实快照需先定口径，单独立项。
+
+## 2026-06-16 - T8 复盘历史列表与指定日期编辑
+
+### 任务范围
+
+执行 T8：作为发布准备前的小补齐任务，只做“复盘历史列表 + 点击编辑指定日期”。本次同时按实机反馈修正首页复盘摘要展示和从复盘页点击底部“首页”不回到首页顶部的问题。
+
+本次不新增第 6 个底部 tab，不改 Room schema，不写 migration，不做 mood 输入，不接真实快照，不做复盘删除 UI，不做统计图表、复杂模板或 AI 总结，不升级工具链。
+
+### 评审约束
+
+本次按 Opus 4.8 评审结果收口：
+
+- T8 不做“复盘增强包”，只做历史列表和指定日期编辑。
+- 数据层复用既有 `ReviewDao.observeAllReviews()` 和 `ReviewRepository.observeAllReviews()`。
+- 入口从今日复盘页进入，不加入底部 tab。
+- `ReviewViewModel` 必须支持指定日期，保存时不能固定写今天。
+- 重复日期脏数据不在 T8 清理；列表按 DAO 返回展示，点击同一日期时仍由 `getReviewByDate()` 取最新一条。
+- 真实快照继续单独立项；当前 `TaskEntity` 无可靠 `completedAt`，不能顺手做统计。
+
+### 修改文件
+
+- `app/build.gradle.kts`
+- `app/src/main/java/com/jimu/app/navigation/Routes.kt`
+- `app/src/main/java/com/jimu/app/navigation/AppNavHost.kt`
+- `app/src/main/java/com/jimu/app/navigation/TabNavigationPolicy.kt`
+- `app/src/main/java/com/jimu/app/ui/components/JimuBottomBar.kt`
+- `app/src/main/java/com/jimu/app/ui/home/HomeScreen.kt`
+- `app/src/main/java/com/jimu/app/ui/review/ReviewScreen.kt`
+- `app/src/main/java/com/jimu/app/ui/review/ReviewHistoryScreen.kt`
+- `app/src/main/java/com/jimu/app/viewmodel/HomeViewModel.kt`
+- `app/src/main/java/com/jimu/app/viewmodel/ReviewViewModel.kt`
+- `app/src/main/java/com/jimu/app/viewmodel/ReviewHistoryViewModel.kt`
+- `app/src/test/java/com/jimu/app/navigation/TabNavigationPolicyTest.kt`
+- `app/src/test/java/com/jimu/app/ui/home/TodayReviewCardStyleTest.kt`
+- `app/src/test/java/com/jimu/app/viewmodel/HomeTodayReviewUiModelTest.kt`
+- `app/src/test/java/com/jimu/app/viewmodel/ReviewViewModelTest.kt`
+- `app/src/test/java/com/jimu/app/viewmodel/ReviewHistoryViewModelTest.kt`
+
+### 修改内容
+
+- `Routes` 新增 `ReviewHistory` 和 `ReviewByDate` 两个非 tab 路由。
+- `AppNavHost` 注册复盘历史列表页和指定日期复盘页；底部 tab 仍只保留首页、待办、习惯、目标、已完成 5 个入口。
+- 新增 `ReviewHistoryViewModel`，复用 `reviewRepository.observeAllReviews()`，只映射每日复盘列表，不处理 weekly 预留类型。
+- 新增 `ReviewHistoryScreen`，展示日期、摘要首行和明日重点首行；空状态只显示轻量提示。
+- `ReviewViewModel` 增加 `reviewDate` 参数，默认今天；加载和保存均按指定日期执行，保存改为调用 `saveDailyReview(reviewDate = ...)`，避免编辑旧日期时误写到今天。
+- `ReviewScreen` 增加“历史”入口，标题根据是否为今天显示“今日复盘”或“复盘记录”，保存按钮统一为“保存并返回”。
+- 首页“今日复盘”卡片改为展示“做得好的事 / 遇到的问题 / 明日重点”三段摘要预览。
+- 修正首页复盘卡片已记录状态下淡蓝背景过重的问题，外层卡片统一使用中性 `surface` 背景。
+- 新增 `TabNavigationPolicy`：从复盘等非 tab 页面点击底部“首页”时不恢复旧滚动状态，并触发首页滚动到顶部；普通 tab 之间切换仍保留原有状态恢复。
+- 测试侧新增 `kotlinx-coroutines-test` 依赖，用于 ViewModel `StateFlow` 行为测试。
+
+### TDD 验证记录
+
+先写复盘指定日期保存、历史列表映射、每日复盘过滤、首页摘要三段内容、首页卡片样式和 tab 导航策略测试后运行，对应预期失败包括：
+
+```text
+Unresolved reference: ReviewHistoryItemUiModel
+Unresolved reference: ReviewHistoryViewModel
+Cannot find a parameter with this name: reviewDate
+Unresolved reference: fromReview
+Unresolved reference: shouldResetHomeScrollOnTabClick
+Unresolved reference: shouldRestoreTabState
+```
+
+实现后先分组运行新增/变更测试，再运行完整本地验证。
+
+### 最终验证
+
+提交前重新运行：
+
+```powershell
+.\gradlew.bat testDebugUnitTest assembleDebug
+```
+
+结果：
+
+```text
+BUILD SUCCESSFUL in 7s
+```
+
+### 真机手测结论
+
+用户已在真实手机完成手测：
+
+- 复盘历史列表可进入并点击日期编辑。
+- 指定日期复盘保存不会误写到今天。
+- 首页“今日复盘”卡片已记录状态下灰色外框问题已收敛。
+- 首页“今日复盘”卡片能显示更多复盘摘要信息。
+- 从复盘页点击底部“首页”可回到首页顶部。
+
+### 提交记录
+
+```text
+66d8da8 feat: add review history flow
+```
+
+推送状态：
+
+```text
+已推送到 origin/main
+```
+
+### 后续边界
+
+- R11 复盘历史列表已通过 T8 前置完成。
+- mood 输入、真实快照、复盘删除、统计图表、AI 总结仍不在当前版本范围内。
+- 真实快照仍需先定义口径，尤其是待办完成数不能直接依赖 `updatedAt`。
+- 下一阶段继续转向发布准备：App 图标、release 签名、深色模式、Typography、启动画面、删除确认、权限/隐私说明和数据导出导入。

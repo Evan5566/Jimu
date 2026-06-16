@@ -4,7 +4,7 @@
 
 ## 更新时间
 
-2026-06-15
+2026-06-16
 
 ## 项目概况
 
@@ -13,7 +13,7 @@
 - 包名：`com.jimu.app`。
 - 当前主模块：`app`。
 - 主要功能：待办、习惯、目标、已完成记录。
-- 复盘当前状态：最小闭环已完成；用户可从首页进入今日复盘页，保存后回到首页查看摘要，并再次进入修改今日复盘。
+- 复盘当前状态：今日复盘闭环和历史回看已完成；用户可从首页进入今日复盘页，保存后回到首页查看三段摘要，也可进入历史列表并点击指定日期继续编辑。
 
 ## 当前技术事实
 
@@ -24,7 +24,7 @@
 - 语音识别：Android 系统 `SpeechRecognizer`。
 - 任务语音解析：本地规则解析 `MockTaskParseRepository`。
 - 复盘数据层：`daily_reviews` / `ReviewEntity` / `ReviewDao` / `ReviewRepository`。
-- 复盘界面层：首页“今日复盘”卡片 / `ReviewScreen` / `ReviewViewModel`。
+- 复盘界面层：首页“今日复盘”卡片 / `ReviewScreen` / `ReviewViewModel` / `ReviewHistoryScreen` / `ReviewHistoryViewModel`。
 - 当前未发现 Java 源文件。
 - 当前未发现 XML layout 页面。
 
@@ -52,7 +52,7 @@ C:\Users\Evan\.jdks\zulu21.50.19-ca-jdk21.0.11-win_x64\zulu21.50.19-ca-jdk21.0.1
 最近一次构建结果：
 
 ```text
-BUILD SUCCESSFUL in 17s
+BUILD SUCCESSFUL in 7s
 ```
 
 APK 输出路径：
@@ -101,7 +101,14 @@ F:\jimuapp\app\build\outputs\apk\debug\app-debug.apk
 - T7 reminder id 口径统一：`TaskReminderIds` 直接用 task id，超 Int 范围返回 null，schedule/cancel 一致。
 - T7 未改 Room schema，未写 migration，未升级工具链，未扩展到习惯/目标。
 - T7 验证：`testDebugUnitTest` 和 `assembleDebug` 已通过；真机手测通过——打开系统“闹钟和提醒”授权 + 关闭电池智能优化 + 通知音量非 0 后，后台/锁屏到点精准触发，声音正常，系统静音时同步静音。
-- 当前下一步：交给 Opus 4.8 判断 T8 复盘增强切分（优先历史复盘列表）。
+- T8 已完成：发布准备前的小补齐任务 / R11 复盘历史列表前置完成。
+- T8 commit：`66d8da8`。
+- T8 新增 `ReviewHistoryViewModel` / `ReviewHistoryScreen` / `Routes.ReviewHistory` / `Routes.ReviewByDate`，支持从今日复盘页进入历史列表，点击历史条目后编辑指定日期复盘。
+- T8 将 `ReviewViewModel` 从“今日专用”改为“指定日期可编辑”，保存时调用 `saveDailyReview(reviewDate = ...)`，避免旧复盘误保存到今天。
+- T8 首页“今日复盘”卡片改为展示“做得好的事 / 遇到的问题 / 明日重点”三段摘要预览，并修正已记录状态下卡片背景过重的问题。
+- T8 新增底部 tab 导航策略：从复盘等非 tab 页面点击底部“首页”时回到首页顶部；底部导航仍保持 5 个 tab。
+- T8 未改 Room schema，未写 migration，未新增第 6 个底部 tab，未做 mood、真实快照、复盘删除、统计图表或 AI 总结。
+- T8 验证：`testDebugUnitTest` 和 `assembleDebug` 已通过；真实手机测试通过；已推送到 `origin/main`。
 
 ## 当前数据库安全状态
 
@@ -120,10 +127,10 @@ F:\jimuapp\app\build\outputs\apk\debug\app-debug.apk
 - Room 已完成 schema 基线、破坏性迁移 fallback 移除和首条正式 migration；后续数据库结构变更必须写 migration。
 - 数据层仍有唯一约束、外键、索引、显式事务和历史脏数据清理等后续安全债。
 - v4 旧库覆盖安装到 v5 的设备/模拟器回归尚未执行；当前限制是命令行 `adb` 不在 PATH。该限制不影响代码提交，但后续需要用 Android Studio 或配置 adb 后补测。
-- 复盘历史列表、mood 输入、真实快照和复盘删除 UI 尚未实现。
+- mood 输入、真实快照和复盘删除 UI 尚未实现；复盘历史列表已在 T8 完成。
 - 真实快照口径未定：`TaskEntity` 无 `completedAt`，`updatedAt` 会被完成/回退/编辑/改期污染，做待办完成数快照需先定口径（可能涉及 schema 变更）。
 - T7 提醒已真机手测通过；但准点触发依赖三项设备侧条件——精确闹钟授权、关闭电池智能优化、通知音量非 0。
 - T7 非精确降级路径（未授予精确闹钟特殊访问时）不承诺严格准点。
 - 部分国产 ROM 的电池策略可能压制后台触发，需用户手动关闭电池优化或加白名单；当前未在代码中引导该项。
 - 高优先级 channel 仍可能受厂商系统的横幅/悬浮通知开关影响。
-- 核心逻辑测试仍待后续 T9 补齐。
+- 核心逻辑测试仍待后续质量加固阶段补齐。
