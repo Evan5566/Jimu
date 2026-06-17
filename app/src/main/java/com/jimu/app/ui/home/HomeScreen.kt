@@ -190,7 +190,9 @@ fun HomeScreen(
                         if (!showVoiceTargetMenu) {
                             voiceViewModel.reset()
                         }
-                    }
+                    },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.KeyboardVoice,

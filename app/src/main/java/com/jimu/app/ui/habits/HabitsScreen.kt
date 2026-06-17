@@ -1,5 +1,6 @@
 package com.jimu.app.ui.habits
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.animation.AnimatedContent
@@ -60,7 +61,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jimu.app.JimuApp
 import com.jimu.app.data.repository.HabitUiModel
-import com.jimu.app.ui.theme.PanelBlue
+import com.jimu.app.ui.theme.panelColor
 import com.jimu.app.viewmodel.HabitDialogMode
 import com.jimu.app.viewmodel.HabitTab
 import com.jimu.app.viewmodel.HabitSummaryUiState
@@ -261,7 +262,7 @@ private fun HabitSummaryCard(
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = PanelBlue),
+        colors = CardDefaults.cardColors(containerColor = panelColor(isSystemInDarkTheme())),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(
@@ -498,7 +499,7 @@ private fun HabitItem(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = PanelBlue),
+        colors = CardDefaults.cardColors(containerColor = panelColor(isSystemInDarkTheme())),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(

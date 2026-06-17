@@ -14,6 +14,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -60,7 +61,7 @@ import com.jimu.app.JimuApp
 import com.jimu.app.data.local.entity.TaskEntity
 import com.jimu.app.ui.completed.buildCompletedGroups
 import com.jimu.app.ui.theme.OverdueTint
-import com.jimu.app.ui.theme.PanelBlue
+import com.jimu.app.ui.theme.panelColor
 import com.jimu.app.ui.theme.TodayTint
 import com.jimu.app.viewmodel.TaskDateOption
 import com.jimu.app.viewmodel.TasksViewModel
@@ -631,7 +632,7 @@ private fun TaskItem(
             .fillMaxWidth()
             .clickable { onEdit() },
         shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = PanelBlue),
+        colors = CardDefaults.cardColors(containerColor = panelColor(isSystemInDarkTheme())),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(

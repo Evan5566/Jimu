@@ -22,3 +22,11 @@ val BorderSoft = Color(0xFFD8E3F2)
 val SuccessBlue = Color(0xFF2563EB)
 val OverdueTint = Color(0xFFE8F0FF)
 val TodayTint = Color(0xFFDCEBFF)
+
+/**
+ * 面板卡片底色，随主题切换：浅色沿用 [PanelBlue]，深色使用 [NightBlue]，
+ * 避免深色模式下浅底配浅字导致文字看不清。
+ */
+fun panelColor(darkTheme: Boolean): Color {
+    return if (darkTheme) NightBlue else PanelBlue
+}

@@ -1342,3 +1342,153 @@ BUILD SUCCESSFUL in 6s
 ### 待快速实机复测
 
 本轮代码调整发生在用户完成 T10 主体真机手测之后。建议只复测历史日期编辑页这条路径：复盘 tab -> 历史 -> 点某一天 -> 顶部只有“返回”、底部按钮为“保存”、保存后停留当前页并显示“已保存”，点“返回”后回到历史列表。
+
+## 2026-06-17 - R3 深色模式修复
+
+### 任务范围
+
+只执行 R3：修复深色模式没有真正启用的问题。按用户要求，本次只改主题代码、测试和上下文文档，不改 Room schema，不改导航，不改 Gradle 配置，不进入 R1 图标、R2 签名、R4 Typography 或其他发布任务。
+
+### 问题原因
+
+`Theme.kt` 中已经定义了 `JimuDarkColorScheme`，但 `JimuTheme` 存在两处问题：
+
+- `darkTheme` 默认值写死为 `false`，没有跟随系统深色模式。
+- `colorScheme` 分支在 `darkTheme == true` 时仍返回 `JimuLightColorScheme`。
+
+### 修改文件
+
+- `app/src/main/java/com/jimu/app/ui/theme/Theme.kt`
+- `app/src/test/java/com/jimu/app/ui/theme/JimuThemeTest.kt`
+- `AI_PLAN.md`
+- `FACT_REPORT.md`
+- `DEV_LOG.md`
+
+### 修改内容
+
+- `JimuTheme` 默认使用 `isSystemInDarkTheme()` 判断系统深色模式。
+- 新增 `selectJimuColorScheme(darkTheme: Boolean)`，浅色分支返回 `JimuLightColorScheme`，深色分支返回 `JimuDarkColorScheme`。
+- 新增 `JimuThemeTest`，验证 `darkTheme = true` 时使用深色方案，背景为 `DeepNavy`，surface 为 `NightBlue`。
+
+### TDD 验证记录
+
+先新增 `JimuThemeTest`，运行目标测试时按预期失败：
+
+```text
+Unresolved reference: selectJimuColorScheme
+```
+
+随后实现 `selectJimuColorScheme(...)` 并修复 `JimuTheme`，重跑目标测试通过。
+
+### 最终验证
+
+目标测试：
+
+```powershell
+.\gradlew.bat testDebugUnitTest --tests com.jimu.app.ui.theme.JimuThemeTest
+```
+
+结果：
+
+```text
+BUILD SUCCESSFUL in 13s
+```
+
+完整单元测试：
+
+```powershell
+.\gradlew.bat testDebugUnitTest
+```
+
+结果：
+
+```text
+BUILD SUCCESSFUL in 3s
+```
+
+Debug 构建：
+
+```powershell
+.\gradlew.bat assembleDebug
+```
+
+结果：
+
+```text
+BUILD SUCCESSFUL in 5s
+```
+
+### 后续手测建议
+
+在真实手机或模拟器中切换系统深色模式，快速查看首页、待办、习惯、目标和复盘页的整体对比度。当前代码层面已接入深色方案，但个别自定义蓝色卡片在深色背景下的视觉舒适度仍需要肉眼确认。
+
+## 2026-06-17 - R3 深色模式实机复测与修复
+
+### 背景
+
+R3 接入深色方案后做实机复测，发现两处深色模式下的视觉问题，本次按问题逐项修复。仍只改主题/页面代码、测试和上下文文档，不改 Room schema，不改导航，不改 Gradle 配置。
+
+### 问题一：待办/习惯卡片在深色下文字看不清
+
+根因：待办页和习惯页的卡片把容器色写死为浅色常量 `PanelBlue`，但卡片内文字使用主题色。深色模式下文字变浅，浅底配浅字导致看不清。目标/复盘卡片正常，是因为它们用 `MaterialTheme.colorScheme.surface` 等主题色容器。
+
+修复：
+
+- 在 `Color.kt` 新增 `panelColor(darkTheme)`：浅色返回 `PanelBlue`，深色返回 `NightBlue`，保持浅色观感不变的同时让深色卡片变深。
+- 将以下三处卡片容器色改为 `panelColor(isSystemInDarkTheme())`：
+  - `app/src/main/java/com/jimu/app/ui/tasks/TasksScreen.kt`
+  - `app/src/main/java/com/jimu/app/ui/habits/HabitsScreen.kt`（两处）
+- 新增 `PanelColorTest`，先因 `panelColor` 未定义失败，实现后通过。
+
+说明：`CompletedScreen.kt` 内也使用 `PanelBlue`，但该文件已是不可达死代码（不在底部导航注册），本次不改，留待后续死代码清理。
+
+### 问题二：四个页面右下角悬浮按钮配色不一致
+
+根因：待办/习惯的 FAB 显式使用 `primary` / `onPrimary`，深浅色都醒目；首页/目标的 FAB 未指定颜色，使用 Material3 默认 `primaryContainer`，深色方案下 `primaryContainer = NightBlue`，配深背景不明显。
+
+修复：
+
+- 首页语音 FAB 与目标新增 FAB 显式设置 `containerColor = MaterialTheme.colorScheme.primary`、`contentColor = MaterialTheme.colorScheme.onPrimary`，与待办/习惯统一。
+- FAB 取色属于 Compose 渲染参数，纯函数无法有效断言，按现有 FAB 模式以编译和实机验证，不新增单元测试。
+
+### 修改文件
+
+- `app/src/main/java/com/jimu/app/ui/theme/Color.kt`
+- `app/src/main/java/com/jimu/app/ui/tasks/TasksScreen.kt`
+- `app/src/main/java/com/jimu/app/ui/habits/HabitsScreen.kt`
+- `app/src/main/java/com/jimu/app/ui/home/HomeScreen.kt`
+- `app/src/main/java/com/jimu/app/ui/goals/GoalsScreen.kt`
+- `app/src/test/java/com/jimu/app/ui/theme/PanelColorTest.kt`
+- `AI_PLAN.md`
+- `FACT_REPORT.md`
+- `DEV_LOG.md`
+
+### 最终验证
+
+完整单元测试：
+
+```powershell
+.\gradlew.bat testDebugUnitTest
+```
+
+结果：
+
+```text
+BUILD SUCCESSFUL
+```
+
+Debug 构建：
+
+```powershell
+.\gradlew.bat assembleDebug
+```
+
+结果：
+
+```text
+BUILD SUCCESSFUL
+```
+
+### 实机复测结论
+
+用户已在真实手机复测通过：深色模式下待办/习惯卡片文字清晰可见；首页、待办、习惯、目标四个页面右下角悬浮按钮配色统一且醒目；浅色模式观感未变。

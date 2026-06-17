@@ -92,7 +92,11 @@ fun GoalsScreen(innerPadding: PaddingValues) {
         modifier = Modifier.padding(innerPadding),
         containerColor = MaterialTheme.colorScheme.background,
         floatingActionButton = {
-            FloatingActionButton(onClick = viewModel::openAddDialog) {
+            FloatingActionButton(
+                onClick = viewModel::openAddDialog,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            ) {
                 Icon(
                     imageVector = Icons.Outlined.Add,
                     contentDescription = "新增目标"

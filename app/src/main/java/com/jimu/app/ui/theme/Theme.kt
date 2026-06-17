@@ -1,5 +1,7 @@
 package com.jimu.app.ui.theme
 
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -46,12 +48,16 @@ private val JimuDarkColorScheme = darkColorScheme(
 
 @Composable
 fun JimuTheme(
-    darkTheme: Boolean = false,
+    darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
     MaterialTheme(
-        colorScheme = if (darkTheme) JimuLightColorScheme else JimuLightColorScheme,
+        colorScheme = selectJimuColorScheme(darkTheme),
         typography = Typography,
         content = content
     )
+}
+
+internal fun selectJimuColorScheme(darkTheme: Boolean): ColorScheme {
+    return if (darkTheme) JimuDarkColorScheme else JimuLightColorScheme
 }

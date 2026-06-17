@@ -26,6 +26,7 @@
 - 复盘数据层：`daily_reviews` / `ReviewEntity` / `ReviewDao` / `ReviewRepository`。
 - 复盘草稿层：`DailyDigestRepository` / `DailyDigestBuilder` / `DailyDigestUiModel`，只聚合现有待办、习惯和目标数据，不写入复盘数据库。
 - 复盘界面层：首页“今日复盘”卡片 / `ReviewScreen` / `ReviewViewModel` / `ReviewHistoryScreen` / `ReviewHistoryViewModel`。
+- 主题层：`JimuTheme` 默认跟随系统深色模式；浅色分支使用 `JimuLightColorScheme`，深色分支使用 `JimuDarkColorScheme`。
 - 当前未发现 Java 源文件。
 - 当前未发现 XML layout 页面。
 
@@ -129,6 +130,9 @@ F:\jimuapp\app\build\outputs\apk\debug\app-debug.apk
 - T10 旧 `CompletedScreen.kt` 内部的 `todayCount` / `weekCount` 和“今天完成 / 本周完成”统计病灶已清理，文件和 `CompletedViewModel` 均保留。
 - T10 未改 Room schema，未写 migration，未新增 `completedAt`，未引入 AI 或云服务。
 - T10 验证：`testDebugUnitTest` 和 `assembleDebug` 已通过；真实手机手测通过。手测覆盖首页复盘卡与底栏复盘入口一致性、复盘 tab 保存反馈、历史列表、历史日期编辑页保存与返回、待办三段切换、已完成回退、首页精简和完成节奏口径，结果符合预期。
+- R3 已完成：深色模式修复。`JimuTheme` 默认接入 `isSystemInDarkTheme()`，深色分支使用 `JimuDarkColorScheme`，并新增 `JimuThemeTest` 覆盖 `selectJimuColorScheme(darkTheme = true)` 的色板选择。
+- R3 实机复测修复：新增 `panelColor(darkTheme)`，待办/习惯卡片容器色从固定 `PanelBlue` 改为随主题切换（深色用 `NightBlue`），修复深色下浅底浅字看不清；新增 `PanelColorTest`。首页与目标页悬浮按钮显式使用 `primary` / `onPrimary`，与待办/习惯统一，修复深色下按钮不明显。`CompletedScreen.kt` 内仍使用 `PanelBlue`，但为不可达死代码，本次保留。
+- R3 验证：相关单元测试先按预期失败、实现后通过；`testDebugUnitTest` 和 `assembleDebug` 均通过；真实手机复测通过——深色下待办/习惯卡片文字清晰，四个页面悬浮按钮配色统一，浅色观感未变。
 
 ## 当前数据库安全状态
 
