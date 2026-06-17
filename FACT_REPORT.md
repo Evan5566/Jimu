@@ -21,12 +21,13 @@
 - UI：Jetpack Compose。
 - 数据库：Room / SQLite。
 - 导航：Navigation Compose。
-- 语音识别：Android 系统 `SpeechRecognizer`。
+- 语音识别：Android 系统 `SpeechRecognizer`，当前语音录入走系统在线识别服务；无网时会先提示“当前语音识别需要联网”。
 - 任务语音解析：本地规则解析 `MockTaskParseRepository`。
 - 复盘数据层：`daily_reviews` / `ReviewEntity` / `ReviewDao` / `ReviewRepository`。
 - 复盘草稿层：`DailyDigestRepository` / `DailyDigestBuilder` / `DailyDigestUiModel`，只聚合现有待办、习惯和目标数据，不写入复盘数据库。
 - 复盘界面层：首页“今日复盘”卡片 / `ReviewScreen` / `ReviewViewModel` / `ReviewHistoryScreen` / `ReviewHistoryViewModel`。
 - 主题层：`JimuTheme` 默认跟随系统深色模式；浅色分支使用 `JimuLightColorScheme`，深色分支使用 `JimuDarkColorScheme`。
+- 权限层：`INTERNET` 已移除；语音联网预检当前声明 `ACCESS_NETWORK_STATE`，录音仍使用 `RECORD_AUDIO`。
 - 当前未发现 Java 源文件。
 - 当前未发现 XML layout 页面。
 
@@ -128,8 +129,8 @@ F:\jimuapp\app\build\outputs\apk\debug\app-debug.apk
 - T10 收尾已完成：首页“今日概览”复述卡已取消；首页“今日复盘”卡与底栏“复盘”入口共用一级 tab 导航，不再把复盘页作为二级页 push。
 - T10 `ReviewScreen` 已区分一级 tab 模式和历史日期编辑页模式：一级 tab 模式显示“历史”、隐藏返回按钮、保存按钮显示“保存”、保存后留在复盘页并显示“已保存”；历史日期编辑页隐藏“历史”、保留返回按钮、保存按钮同样显示“保存”，保存后留在当前页并显示“已保存”。
 - T10 旧 `CompletedScreen.kt` 内部的 `todayCount` / `weekCount` 和“今天完成 / 本周完成”统计病灶已清理，文件和 `CompletedViewModel` 均保留。
-- T10 未改 Room schema，未写 migration，未新增 `completedAt`，未引入 AI 或云服务。
-- T10 验证：`testDebugUnitTest` 和 `assembleDebug` 已通过；真实手机手测通过。手测覆盖首页复盘卡与底栏复盘入口一致性、复盘 tab 保存反馈、历史列表、历史日期编辑页保存与返回、待办三段切换、已完成回退、首页精简和完成节奏口径，结果符合预期。
+- R6 已完成：待办和习惯删除二次确认已统一落地，删除入口现已先弹确认框再执行删除。
+- R7 已完成：`INTERNET` 权限已清理；语音识别依赖系统联网能力时会先做联网预检，避免无网时进入系统识别超时。
 - R3 已完成：深色模式修复。`JimuTheme` 默认接入 `isSystemInDarkTheme()`，深色分支使用 `JimuDarkColorScheme`，并新增 `JimuThemeTest` 覆盖 `selectJimuColorScheme(darkTheme = true)` 的色板选择。
 - R3 实机复测修复：新增 `panelColor(darkTheme)`，待办/习惯卡片容器色从固定 `PanelBlue` 改为随主题切换（深色用 `NightBlue`），修复深色下浅底浅字看不清；新增 `PanelColorTest`。首页与目标页悬浮按钮显式使用 `primary` / `onPrimary`，与待办/习惯统一，修复深色下按钮不明显。`CompletedScreen.kt` 内仍使用 `PanelBlue`，但为不可达死代码，本次保留。
 - R3 验证：相关单元测试先按预期失败、实现后通过；`testDebugUnitTest` 和 `assembleDebug` 均通过；真实手机复测通过——深色下待办/习惯卡片文字清晰，四个页面悬浮按钮配色统一，浅色观感未变。

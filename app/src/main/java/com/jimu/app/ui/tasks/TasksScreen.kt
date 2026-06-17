@@ -107,6 +107,7 @@ fun TasksScreen(innerPadding: PaddingValues) {
     val editCustomDate by viewModel.editCustomDate.collectAsState()
 
     var viewMode by rememberSaveable { mutableStateOf(TaskViewMode.TODAY) }
+    var pendingDeleteTask by remember { mutableStateOf<TaskEntity?>(null) }
 
     val today = LocalDate.now()
     val zoneId = ZoneId.systemDefault()
@@ -284,7 +285,7 @@ fun TasksScreen(innerPadding: PaddingValues) {
                                                     }
                                                 },
                                                 onToggleCompleted = { viewModel.toggleTaskCompleted(task) },
-                                                onDelete = { viewModel.deleteTask(task) },
+                                                onDelete = { pendingDeleteTask = task },
                                                 onEdit = { viewModel.startEditTask(task) }
                                             )
                                         }
@@ -313,7 +314,7 @@ fun TasksScreen(innerPadding: PaddingValues) {
                                                 onRescheduleTomorrow = {},
                                                 onRescheduleCustom = {},
                                                 onToggleCompleted = { viewModel.toggleTaskCompleted(task) },
-                                                onDelete = { viewModel.deleteTask(task) },
+                                                onDelete = { pendingDeleteTask = task },
                                                 onEdit = { viewModel.startEditTask(task) }
                                             )
                                         }
@@ -342,7 +343,7 @@ fun TasksScreen(innerPadding: PaddingValues) {
                                                 onRescheduleTomorrow = {},
                                                 onRescheduleCustom = {},
                                                 onToggleCompleted = { viewModel.toggleTaskCompleted(task) },
-                                                onDelete = { viewModel.deleteTask(task) },
+                                                onDelete = { pendingDeleteTask = task },
                                                 onEdit = { viewModel.startEditTask(task) }
                                             )
                                         }
@@ -371,7 +372,7 @@ fun TasksScreen(innerPadding: PaddingValues) {
                                                 onRescheduleTomorrow = {},
                                                 onRescheduleCustom = {},
                                                 onToggleCompleted = { viewModel.toggleTaskCompleted(task) },
-                                                onDelete = { viewModel.deleteTask(task) },
+                                                onDelete = { pendingDeleteTask = task },
                                                 onEdit = { viewModel.startEditTask(task) }
                                             )
                                         }
@@ -425,7 +426,52 @@ fun TasksScreen(innerPadding: PaddingValues) {
             onSave = viewModel::saveEdit
         )
     }
+
+    pendingDeleteTask?.let { task ->
+        ConfirmDeleteDialog(
+            title = taskDeleteConfirmationTitle(),
+            content = taskDeleteConfirmationContent(task.title),
+            onConfirm = {
+                viewModel.deleteTask(task)
+                pendingDeleteTask = null
+            },
+            onDismiss = { pendingDeleteTask = null }
+        )
+    }
 }
+
+@Composable
+private fun ConfirmDeleteDialog(
+    title: String,
+    content: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = { Text(content) },
+        confirmButton = {
+            TextButton(
+                onClick = onConfirm,
+                colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Text("删除")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("取消")
+            }
+        }
+    )
+}
+
+internal fun taskDeleteConfirmationTitle(): String = "删除待办"
+
+internal fun taskDeleteConfirmationContent(taskTitle: String): String = "确认删除“$taskTitle”吗？"
 
 private fun Long.toLocalDate(zoneId: ZoneId): LocalDate {
     return Instant.ofEpochMilli(this)

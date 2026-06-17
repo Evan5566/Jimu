@@ -1489,6 +1489,157 @@ Debug 构建：
 BUILD SUCCESSFUL
 ```
 
-### 实机复测结论
+### 实机验证结论
 
-用户已在真实手机复测通过：深色模式下待办/习惯卡片文字清晰可见；首页、待办、习惯、目标四个页面右下角悬浮按钮配色统一且醒目；浅色模式观感未变。
+用户已在真实手机验证通过：
+
+- 待办删除现已先弹确认框，取消不删除，确认后才删除。
+- 习惯删除现已先弹确认框，取消不删除，确认后才删除。
+- 目标原有删除确认未受影响。
+
+## 2026-06-17 - R6 删除二次确认与 R7 INTERNET 权限清理
+
+### 任务范围
+
+按用户要求，只执行两项发布基础补齐：
+
+- R6：为待办和习惯补齐删除二次确认。
+- R7：移除未使用的 `INTERNET` 权限。
+
+本次不改 Room schema，不写 migration，不改导航，不升级 Gradle / AGP / Kotlin / Compose / Room，不更新文档以外的发布任务。
+
+### 修改文件
+
+- `app/src/main/AndroidManifest.xml`
+- `app/src/main/java/com/jimu/app/ui/tasks/TasksScreen.kt`
+- `app/src/main/java/com/jimu/app/ui/habits/HabitsScreen.kt`
+- `app/src/test/java/com/jimu/app/ui/tasks/TaskDeleteConfirmationTest.kt`
+- `app/src/test/java/com/jimu/app/ui/habits/HabitDeleteConfirmationTest.kt`
+
+### 修改内容
+
+- 从 `AndroidManifest.xml` 移除未使用的 `android.permission.INTERNET`。
+- 待办页所有删除入口改为先记录 `pendingDeleteTask`，弹出“删除待办”确认框后再执行 `viewModel.deleteTask(task)`。
+- 习惯页今日 / 全部删除入口改为先记录 `pendingDeleteHabit`，弹出“删除习惯”确认框后再执行 `viewModel.deleteHabit(habit)`。
+- 待办与习惯删除确认按钮统一使用红色“删除”和“取消”，对齐目标页的高风险操作风格。
+- 新增两个最小单测，覆盖删除确认标题和文案函数。
+
+### TDD 验证记录
+
+先新增 `TaskDeleteConfirmationTest` 和 `HabitDeleteConfirmationTest`，运行目标测试时按预期失败：
+
+```text
+Unresolved reference: taskDeleteConfirmationContent
+Unresolved reference: habitDeleteConfirmationContent
+```
+
+实现删除确认文案函数和弹窗接入后，重跑目标测试通过。
+
+### 最终验证
+
+目标测试：
+
+```powershell
+.\gradlew.bat testDebugUnitTest --tests com.jimu.app.ui.tasks.TaskDeleteConfirmationTest --tests com.jimu.app.ui.habits.HabitDeleteConfirmationTest
+```
+
+结果：
+
+```text
+BUILD SUCCESSFUL
+```
+
+完整单元测试：
+
+```powershell
+.\gradlew.bat testDebugUnitTest
+```
+
+结果：
+
+```text
+BUILD SUCCESSFUL
+```
+
+Debug 构建：
+
+```powershell
+.\gradlew.bat assembleDebug
+```
+
+结果：
+
+```text
+BUILD SUCCESSFUL
+```
+
+## 2026-06-17 - 语音识别无网直提示与联网预检修复
+
+### 背景
+
+用户在小米 11 上反馈语音录入提示“没有识别有效内容，网络超时”；进一步排查发现同机系统输入法语音转文字在断网状态下也报网络问题，说明故障点不在待办/习惯/目标业务层，而在 Android 系统 `SpeechRecognizer` 所依赖的系统在线语音识别服务。
+
+第一次实现联网预检后，真实设备点击语音出现闪退。根因是新代码访问 `ConnectivityManager.activeNetwork` 时，Manifest 尚未声明 `ACCESS_NETWORK_STATE`，在部分机型上触发权限相关异常。
+
+### 修改文件
+
+- `app/src/main/AndroidManifest.xml`
+- `app/src/main/java/com/jimu/app/voice/AndroidSpeechToTextRepository.kt`
+- `app/src/test/java/com/jimu/app/voice/VoiceRecognitionPreflightTest.kt`
+
+### 修改内容
+
+- 为语音识别启动前新增联网预检：无网时直接提示“当前语音识别需要联网”，不再等系统语音服务返回“网络超时”。
+- 将 `SpeechRecognizer.ERROR_NETWORK` 和 `ERROR_NETWORK_TIMEOUT` 的错误文案统一为“当前语音识别需要联网”。
+- 补充 `android.permission.ACCESS_NETWORK_STATE`，用于联网状态检查。
+- 将预检函数改为可注入 `networkProbe` 的形式，并在探测抛出 `SecurityException` 或其他运行时异常时兜底返回“当前语音识别需要联网”，避免再次闪退。
+- 新增最小单测，覆盖：无网提示、不支持识别提示、联网通过、探测抛异常时不崩四种情况。
+
+### TDD 验证记录
+
+先更新 `VoiceRecognitionPreflightTest`，要求预检函数支持 `networkProbe` 并在探测抛异常时返回联网提示。运行目标测试时按预期失败：
+
+```text
+Cannot find a parameter with this name: networkProbe
+No value passed for parameter 'isNetworkAvailable'
+```
+
+随后将生产代码改为 `networkProbe` 版本，并补上权限与异常兜底，重跑目标测试通过。
+
+### 最终验证
+
+目标测试：
+
+```powershell
+.\gradlew.bat testDebugUnitTest --tests com.jimu.app.voice.VoiceRecognitionPreflightTest
+```
+
+结果：
+
+```text
+BUILD SUCCESSFUL
+```
+
+完整单元测试：
+
+```powershell
+.\gradlew.bat testDebugUnitTest
+```
+
+结果：
+
+```text
+BUILD SUCCESSFUL
+```
+
+Debug 构建：
+
+```powershell
+.\gradlew.bat assembleDebug
+```
+
+结果：
+
+```text
+BUILD SUCCESSFUL
+```

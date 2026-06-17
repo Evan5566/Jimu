@@ -2,6 +2,8 @@ package com.jimu.app.voice
 
 import android.content.Context
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
@@ -22,8 +24,12 @@ class AndroidSpeechToTextRepository(
         onFinalResult: (String) -> Unit,
         onError: (String) -> Unit
     ) {
-        if (!SpeechRecognizer.isRecognitionAvailable(context)) {
-            onError("当前设备不支持系统语音识别")
+        val preflightError = voiceRecognitionPreflightError(
+            isRecognitionAvailable = SpeechRecognizer.isRecognitionAvailable(context),
+            networkProbe = { isNetworkAvailable(context) }
+        )
+        if (preflightError != null) {
+            onError(preflightError)
             return
         }
 
@@ -48,7 +54,6 @@ class AndroidSpeechToTextRepository(
                 override fun onEndOfSpeech() = Unit
 
                 override fun onError(error: Int) {
-                    // 如果已经有 partial，就尽量兜底返回，不直接报错
                     if (!finalDelivered && latestPartialText.isNotBlank()) {
                         finalDelivered = true
                         onFinalResult(latestPartialText.trim())
@@ -130,8 +135,8 @@ class AndroidSpeechToTextRepository(
             SpeechRecognizer.ERROR_AUDIO -> "录音异常"
             SpeechRecognizer.ERROR_CLIENT -> "客户端错误"
             SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "缺少录音权限"
-            SpeechRecognizer.ERROR_NETWORK -> "网络错误"
-            SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "网络超时"
+            SpeechRecognizer.ERROR_NETWORK,
+            SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "当前语音识别需要联网"
             SpeechRecognizer.ERROR_NO_MATCH -> "没有识别到内容"
             SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "语音识别服务正忙"
             SpeechRecognizer.ERROR_SERVER -> "识别服务异常"
@@ -139,4 +144,30 @@ class AndroidSpeechToTextRepository(
             else -> "语音识别失败（$error）"
         }
     }
+}
+
+internal fun voiceRecognitionPreflightError(
+    isRecognitionAvailable: Boolean,
+    networkProbe: () -> Boolean
+): String? {
+    if (!isRecognitionAvailable) return "当前设备不支持系统语音识别"
+    val isNetworkAvailable = try {
+        networkProbe()
+    } catch (_: SecurityException) {
+        false
+    } catch (_: RuntimeException) {
+        false
+    }
+    if (!isNetworkAvailable) return "当前语音识别需要联网"
+    return null
+}
+
+private fun isNetworkAvailable(context: Context): Boolean {
+    val connectivityManager =
+        context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+            ?: return false
+    val network = connectivityManager.activeNetwork ?: return false
+    val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+    return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+        capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
 }

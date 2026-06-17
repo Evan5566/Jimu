@@ -52,6 +52,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -60,6 +63,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jimu.app.JimuApp
+import com.jimu.app.data.local.entity.HabitEntity
 import com.jimu.app.data.repository.HabitUiModel
 import com.jimu.app.ui.theme.panelColor
 import com.jimu.app.viewmodel.HabitDialogMode
@@ -85,6 +89,7 @@ fun HabitsScreen(innerPadding: PaddingValues) {
     val dialogMode by viewModel.dialogMode.collectAsState()
     val draftName by viewModel.draftName.collectAsState()
     val draftDescription by viewModel.draftDescription.collectAsState()
+    var pendingDeleteHabit by remember { mutableStateOf<HabitEntity?>(null) }
 
     Scaffold(
         modifier = Modifier.padding(innerPadding),
@@ -161,7 +166,7 @@ fun HabitsScreen(innerPadding: PaddingValues) {
                                             onCheckIn = { viewModel.checkInToday(habitUi.habit) },
                                             onUncheckIn = { viewModel.uncheckInToday(habitUi.habit) },
                                             onEdit = { viewModel.openEditDialog(habitUi.habit) },
-                                            onDelete = { viewModel.deleteHabit(habitUi.habit) }
+                                            onDelete = { pendingDeleteHabit = habitUi.habit }
                                         )
                                     }
                                 }
@@ -179,7 +184,7 @@ fun HabitsScreen(innerPadding: PaddingValues) {
                                             onCheckIn = { viewModel.checkInToday(habitUi.habit) },
                                             onUncheckIn = { viewModel.uncheckInToday(habitUi.habit) },
                                             onEdit = { viewModel.openEditDialog(habitUi.habit) },
-                                            onDelete = { viewModel.deleteHabit(habitUi.habit) }
+                                            onDelete = { pendingDeleteHabit = habitUi.habit }
                                         )
                                     }
                                 }
@@ -211,7 +216,7 @@ fun HabitsScreen(innerPadding: PaddingValues) {
                                         onCheckIn = { viewModel.checkInToday(habitUi.habit) },
                                         onUncheckIn = { viewModel.uncheckInToday(habitUi.habit) },
                                         onEdit = { viewModel.openEditDialog(habitUi.habit) },
-                                        onDelete = { viewModel.deleteHabit(habitUi.habit) }
+                                        onDelete = { pendingDeleteHabit = habitUi.habit }
                                     )
                                 }
                             }
@@ -231,6 +236,18 @@ fun HabitsScreen(innerPadding: PaddingValues) {
             onDescriptionChange = viewModel::onDraftDescriptionChange,
             onDismiss = viewModel::closeDialog,
             onConfirm = viewModel::submitDialog
+        )
+    }
+
+    pendingDeleteHabit?.let { habit ->
+        ConfirmDeleteDialog(
+            title = habitDeleteConfirmationTitle(),
+            content = habitDeleteConfirmationContent(habit.name),
+            onConfirm = {
+                viewModel.deleteHabit(habit)
+                pendingDeleteHabit = null
+            },
+            onDismiss = { pendingDeleteHabit = null }
         )
     }
 }
@@ -680,3 +697,36 @@ private fun HabitEditorDialog(
         }
     )
 }
+
+@Composable
+private fun ConfirmDeleteDialog(
+    title: String,
+    content: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = { Text(content) },
+        confirmButton = {
+            TextButton(
+                onClick = onConfirm,
+                colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Text("删除")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("取消")
+            }
+        }
+    )
+}
+
+internal fun habitDeleteConfirmationTitle(): String = "删除习惯"
+
+internal fun habitDeleteConfirmationContent(habitName: String): String = "确认删除“$habitName”吗？历史打卡记录也会一并移除。"
