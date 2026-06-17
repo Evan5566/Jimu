@@ -128,7 +128,7 @@ F:\jimuapp\app\build\outputs\apk\debug\app-debug.apk
 - T10 `ReviewScreen` 已区分一级 tab 模式和历史日期编辑页模式：一级 tab 模式显示“历史”、隐藏返回按钮、保存按钮显示“保存”、保存后留在复盘页并显示“已保存”；历史日期编辑页隐藏“历史”、保留返回按钮、保存按钮同样显示“保存”，保存后留在当前页并显示“已保存”。
 - T10 旧 `CompletedScreen.kt` 内部的 `todayCount` / `weekCount` 和“今天完成 / 本周完成”统计病灶已清理，文件和 `CompletedViewModel` 均保留。
 - T10 未改 Room schema，未写 migration，未新增 `completedAt`，未引入 AI 或云服务。
-- T10 验证：`testDebugUnitTest` 和 `assembleDebug` 已通过；主体流程真实手机手测通过。手测覆盖首页复盘卡与底栏复盘入口一致性、复盘 tab 保存反馈、历史列表、待办三段切换、已完成回退、首页精简和完成节奏口径；历史日期编辑页“保存/返回拆分”微调已完成本地验证，建议快速复测该路径。
+- T10 验证：`testDebugUnitTest` 和 `assembleDebug` 已通过；真实手机手测通过。手测覆盖首页复盘卡与底栏复盘入口一致性、复盘 tab 保存反馈、历史列表、历史日期编辑页保存与返回、待办三段切换、已完成回退、首页精简和完成节奏口径，结果符合预期。
 
 ## 当前数据库安全状态
 
