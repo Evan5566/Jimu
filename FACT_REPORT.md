@@ -10,8 +10,8 @@
 - 类型：Android 单机个人管理 App。
 - 包名：`com.jimu.app`。
 - 当前主模块：`app`。
-- 当前工作分支：`codex/data-backup-restore-mvp`。
-- 本轮功能基线提交：`20ff4c3`。
+- 当前稳定分支：`main`。
+- 本轮本地备份恢复功能由 `codex/data-backup-restore-mvp` 分支开发，基线提交为 `20ff4c3`。
 
 ## 2. 当前功能状态
 
@@ -166,7 +166,7 @@ $env:Path="$env:JAVA_HOME\bin;$env:Path"
 testDebugUnitTest --rerun-tasks: BUILD SUCCESSFUL（91 tests，0 failures）
 assembleDebug --rerun-tasks: BUILD SUCCESSFUL
 assembleDebugAndroidTest --rerun-tasks: BUILD SUCCESSFUL
-connectedDebugAndroidTest: 未执行成功；真机已连接，但系统以 INSTALL_FAILED_USER_RESTRICTED 拒绝安装测试 APK，执行 0 tests
+connectedDebugAndroidTest --rerun-tasks: BUILD SUCCESSFUL（真机 4 tests，0 failures）
 ```
 
 Debug APK 输出路径：
@@ -177,7 +177,7 @@ F:\jimuapp\app\build\outputs\apk\debug\app-debug.apk
 
 ## 7. 当前已知风险
 
-- 数据导出/导入基本路径已通过用户真机测试，但真实 Room 回滚和 SQLite 自增仪器测试仍未自动执行；当前小米真机拒绝通过 USB 安装测试 APK。
+- 数据导出/导入基本路径已通过用户真机测试；Android JSON 往返、真实 Room 回滚和 SQLite 自增仪器测试已在小米 11 / Android 14 真机通过。
 - 非法 JSON、超 10 MiB、保险备份写入失败和提醒到点行为未收到逐项验收反馈，仍保留为待覆盖边界。
 - 备份文件为未加密明文，可能包含待办、目标和复盘内容，需要用户妥善保管。
 - `habit_records(habitId, recordDate)` 尚无唯一约束。

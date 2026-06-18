@@ -1797,7 +1797,6 @@ com.android.builder.testing.api.DeviceException: No connected devices!
 
 ### 尚未覆盖
 
-- 当前没有连接设备/模拟器，因此 Android JSON 往返、真实 Room 回滚和 SQLite 自增仪器测试尚未实际执行。
 - 非法 JSON、超 10 MiB、保险备份写入失败和提醒到点行为未收到逐项真机反馈。
 - R10 的 `habit_records(habitId, recordDate)` 唯一约束、索引、历史去重和 migration 不在本轮范围内，仍保留为数据层风险。
 
@@ -1827,3 +1826,26 @@ INSTALL_FAILED_USER_RESTRICTED: Install canceled by user
 ```
 
 小米系统拒绝安装 `app-debug-androidTest.apk`。这是设备侧“通过 USB 安装/安全安装”限制；androidTest APK 本身已成功编译，但 Android JSON 往返、真实 Room 回滚和 SQLite 自增测试仍不能记为设备端通过。
+
+用户开启手机 USB 安装权限后，再次执行同一命令：
+
+```powershell
+.\gradlew.bat connectedDebugAndroidTest --rerun-tasks --console=plain
+```
+
+结果：
+
+```text
+Starting 4 tests on M2011K2C - 14
+Finished 4 tests on M2011K2C - 14
+BUILD SUCCESSFUL
+```
+
+测试报告确认：
+
+- 4 tests。
+- 0 failures / 0 errors / 0 skipped。
+- Android `org.json` V1 往返通过。
+- 真实 Room 插入失败后的事务回滚通过。
+- 恢复显式 ID 后 SQLite 自增序列继续递增通过。
+- 基础 App Context 测试通过。
