@@ -2,7 +2,7 @@
 
 本文件只记录项目当前事实，方便后续 AI 或开发者快速接手。产品路线写入 `AI_PLAN.md`，执行流水写入 `DEV_LOG.md`，发布准备清单写入 `RELEASE_PLAN.md`。
 
-更新时间：2026-06-17
+更新时间：2026-06-18
 
 ## 1. 项目概况
 
@@ -10,8 +10,8 @@
 - 类型：Android 单机个人管理 App。
 - 包名：`com.jimu.app`。
 - 当前主模块：`app`。
-- 当前分支：`main`。
-- 最近确认的最新提交：`7eaa7b8 feat: finalize release safety polish`。
+- 当前工作分支：`codex/data-backup-restore-mvp`。
+- 本轮功能基线提交：`20ff4c3`。
 
 ## 2. 当前功能状态
 
@@ -60,6 +60,18 @@
 - 当前只支持待办到期提醒。
 - 已接入 Android 13+ 通知权限、高优先级通知 channel、精确闹钟优先调度和降级路径。
 - 支持应用启动、设备重启、应用升级、精确闹钟授权变化后的未来提醒重排。
+- 数据恢复成功后会先取消恢复前的旧待办提醒，再为恢复后的未来未完成待办重建提醒。
+
+### 设置与本地备份
+
+- 首页右上角设置按钮已接入二级设置页，设置页隐藏底部导航并提供返回入口。
+- 设置页显示版本信息、本地 JSON 导出入口和 JSON 恢复入口。
+- 备份覆盖待办、习惯、习惯记录、目标、目标步骤和复盘，格式使用独立 V1 DTO，不直接暴露 Room Entity。
+- 导入采用“受限读取 -> JSON 解码 -> 完整校验 -> 预览确认 -> 强制保存当前数据保险备份 -> 事务全量替换 -> 提醒重建”流程。
+- 导入预览显示备份时间和各类数据数量。
+- 备份文件为未加密 UTF-8 JSON，导入和导出统一限制为 10 MiB。
+- 第一版恢复策略是完整备份全量替换，不做智能合并。
+- 2026-06-18 用户已在真机完成基本路径测试，设置入口、导出、恢复预览、恢复前保险备份和数据恢复整体成功。
 
 ## 3. 当前技术事实
 
@@ -102,6 +114,14 @@
 - `GoalRepository`
 - `ReviewRepository`
 - `DailyDigestRepository`
+- `BackupRepository`
+
+备份恢复边界：
+
+- `BackupTransactionRunner` 隔离 Room 事务，生产实现使用 `AppDatabase.withTransaction`。
+- 恢复专用批量插入使用 `OnConflictStrategy.ABORT`。
+- `TaskReminderController` 隔离 Android 提醒调度，便于 JVM 测试逐项失败汇总。
+- Room database version 仍为 5，本轮没有 schema 变更或 migration。
 
 ## 5. 权限事实
 
@@ -143,8 +163,10 @@ $env:Path="$env:JAVA_HOME\bin;$env:Path"
 最近文档记录中的构建结果：
 
 ```text
-testDebugUnitTest: BUILD SUCCESSFUL
-assembleDebug: BUILD SUCCESSFUL
+testDebugUnitTest --rerun-tasks: BUILD SUCCESSFUL（91 tests，0 failures）
+assembleDebug --rerun-tasks: BUILD SUCCESSFUL
+assembleDebugAndroidTest --rerun-tasks: BUILD SUCCESSFUL
+connectedDebugAndroidTest: 未执行成功；真机已连接，但系统以 INSTALL_FAILED_USER_RESTRICTED 拒绝安装测试 APK，执行 0 tests
 ```
 
 Debug APK 输出路径：
@@ -155,11 +177,13 @@ F:\jimuapp\app\build\outputs\apk\debug\app-debug.apk
 
 ## 7. 当前已知风险
 
-- 数据导出/导入尚未实现，卸载或换机仍可能导致本地数据丢失。
+- 数据导出/导入基本路径已通过用户真机测试，但真实 Room 回滚和 SQLite 自增仪器测试仍未自动执行；当前小米真机拒绝通过 USB 安装测试 APK。
+- 非法 JSON、超 10 MiB、保险备份写入失败和提醒到点行为未收到逐项验收反馈，仍保留为待覆盖边界。
+- 备份文件为未加密明文，可能包含待办、目标和复盘内容，需要用户妥善保管。
 - `habit_records(habitId, recordDate)` 尚无唯一约束。
 - 部分表尚无外键、索引和显式事务保护。
 - `insertHabitRecord` 的 `REPLACE + autoGenerate` 去重问题尚未彻底处理。
-- v4 旧库覆盖安装到 v5 的设备/模拟器回归尚未补测；此前限制是命令行 `adb` 不在 PATH。
+- v4 旧库覆盖安装到 v5 的设备/模拟器回归尚未补测。
 - `TaskEntity` 没有 `completedAt`，当前不能严谨统计“今日完成”或“本周完成”。
 - 提醒准点性依赖设备授权和厂商后台策略；非精确降级路径不承诺严格准点。
 - 部分国产 ROM 可能需要用户手动关闭电池优化或加白名单。

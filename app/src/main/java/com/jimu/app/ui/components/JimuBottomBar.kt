@@ -12,6 +12,7 @@ import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Loop
 import androidx.compose.material.icons.outlined.RateReview
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -67,6 +68,7 @@ fun JimuBottomBar(
                                 is Routes.Goals -> Icons.Outlined.Flag
                                 is Routes.Completed -> Icons.Outlined.CheckCircle
                                 is Routes.Review -> Icons.Outlined.RateReview
+                                is Routes.Settings -> Icons.Outlined.Settings
                                 is Routes.ReviewHistory -> Icons.Outlined.Home
                                 is Routes.ReviewByDate -> Icons.Outlined.Home
                             },

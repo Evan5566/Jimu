@@ -24,12 +24,21 @@ interface TaskDao {
     )
     suspend fun getFutureReminderTasks(nowMillis: Long): List<TaskEntity>
 
+    @Query("SELECT * FROM tasks ORDER BY id ASC")
+    suspend fun getAllTasksForBackup(): List<TaskEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTask(task: TaskEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertTasksForRestoreAbort(tasks: List<TaskEntity>)
 
     @Update
     suspend fun updateTask(task: TaskEntity)
 
     @Delete
     suspend fun deleteTask(task: TaskEntity)
+
+    @Query("DELETE FROM tasks")
+    suspend fun deleteAllTasksForRestore()
 }

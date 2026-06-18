@@ -62,7 +62,8 @@ import com.jimu.app.voice.VoiceInputTarget
 fun HomeScreen(
     innerPadding: PaddingValues,
     resetScrollSignal: Int = 0,
-    onOpenReview: () -> Unit
+    onOpenReview: () -> Unit,
+    onOpenSettings: () -> Unit
 ) {
     val context = LocalContext.current
     val app = context.applicationContext as JimuApp
@@ -222,7 +223,7 @@ fun HomeScreen(
                             animationSpec = tween(300)
                         )
             ) {
-                HomeTopBar()
+                HomeTopBar(onOpenSettings = onOpenSettings)
             }
 
             Spacer(modifier = Modifier.height(18.dp))
@@ -461,7 +462,9 @@ private fun VoiceTargetChip(
 }
 
 @Composable
-private fun HomeTopBar() {
+private fun HomeTopBar(
+    onOpenSettings: () -> Unit
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -503,7 +506,7 @@ private fun HomeTopBar() {
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 2.dp
         ) {
-            IconButton(onClick = { }) {
+            IconButton(onClick = onOpenSettings) {
                 Icon(
                     imageVector = Icons.Outlined.Settings,
                     contentDescription = "设置",

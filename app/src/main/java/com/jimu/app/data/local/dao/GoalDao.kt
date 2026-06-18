@@ -19,11 +19,23 @@ interface GoalDao {
     @Query("SELECT * FROM goal_steps ORDER BY createdAt ASC")
     fun observeAllGoalSteps(): Flow<List<GoalStepEntity>>
 
+    @Query("SELECT * FROM goals ORDER BY id ASC")
+    suspend fun getAllGoalsForBackup(): List<GoalEntity>
+
+    @Query("SELECT * FROM goal_steps ORDER BY id ASC")
+    suspend fun getAllGoalStepsForBackup(): List<GoalStepEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertGoal(goal: GoalEntity): Long
 
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertGoalsForRestoreAbort(goals: List<GoalEntity>)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertGoalStep(step: GoalStepEntity)
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertGoalStepsForRestoreAbort(steps: List<GoalStepEntity>)
 
     @Update
     suspend fun updateGoal(goal: GoalEntity)
@@ -48,4 +60,10 @@ interface GoalDao {
         """
     )
     suspend fun resetGoalStepsCompletion(goalId: Long, updatedAt: Long)
+
+    @Query("DELETE FROM goal_steps")
+    suspend fun deleteAllGoalStepsForRestore()
+
+    @Query("DELETE FROM goals")
+    suspend fun deleteAllGoalsForRestore()
 }

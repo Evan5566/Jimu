@@ -102,6 +102,20 @@ private class FakeTaskDao : TaskDao {
             .sortedBy { it.dueDate }
     }
 
+    override suspend fun getAllTasksForBackup(): List<TaskEntity> =
+        tasks.sortedBy { it.id }
+
+    override suspend fun insertTasksForRestoreAbort(tasks: List<TaskEntity>) {
+        check(tasks.map { it.id }.distinct().size == tasks.size)
+        this.tasks.addAll(tasks)
+        publish()
+    }
+
+    override suspend fun deleteAllTasksForRestore() {
+        tasks.clear()
+        publish()
+    }
+
     fun seed(seedTasks: List<TaskEntity>) {
         tasks.clear()
         tasks.addAll(seedTasks)
