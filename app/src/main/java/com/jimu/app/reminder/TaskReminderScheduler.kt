@@ -12,13 +12,13 @@ import com.jimu.app.data.local.entity.TaskEntity
 
 class TaskReminderScheduler(
     private val context: Context
-) {
+) : TaskReminderController {
     private val alarmManager: AlarmManager =
         context.getSystemService(AlarmManager::class.java)
 
-    fun schedule(
+    override fun schedule(
         task: TaskEntity,
-        mayRequestExactAlarmPermission: Boolean = false
+        mayRequestExactAlarmPermission: Boolean
     ) {
         val plan = TaskReminderPlan.fromTask(task) ?: run {
             cancel(task.id)
@@ -41,7 +41,7 @@ class TaskReminderScheduler(
         }
     }
 
-    fun cancel(taskId: Long) {
+    override fun cancel(taskId: Long) {
         val requestCode = TaskReminderIds.fromTaskId(taskId) ?: return
         val pendingIntent = PendingIntent.getBroadcast(
             context,

@@ -148,6 +148,9 @@ private class FakeReviewDao : ReviewDao {
         }
     }
 
+    override suspend fun getAllReviewsForBackup(): List<ReviewEntity> =
+        reviews.sortedBy { it.id }
+
     override suspend fun insertReview(review: ReviewEntity): Long {
         reviews.add(review)
         publish()
@@ -166,6 +169,16 @@ private class FakeReviewDao : ReviewDao {
 
     override suspend fun deleteReview(review: ReviewEntity) {
         reviews.removeAll { it.id == review.id }
+        publish()
+    }
+
+    override suspend fun insertReviewsForRestoreAbort(reviews: List<ReviewEntity>) {
+        this.reviews.addAll(reviews)
+        publish()
+    }
+
+    override suspend fun deleteAllReviewsForRestore() {
+        reviews.clear()
         publish()
     }
 

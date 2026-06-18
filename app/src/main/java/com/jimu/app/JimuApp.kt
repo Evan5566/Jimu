@@ -2,6 +2,9 @@ package com.jimu.app
 
 import android.app.Application
 import androidx.room.Room
+import com.jimu.app.data.backup.BackupRepository
+import com.jimu.app.data.backup.BackupReminderRebuilder
+import com.jimu.app.data.backup.RoomBackupTransactionRunner
 import com.jimu.app.data.local.AppDatabase
 import com.jimu.app.data.local.MIGRATION_4_5
 import com.jimu.app.data.repository.DailyDigestRepository
@@ -38,6 +41,12 @@ class JimuApp : Application() {
     lateinit var dailyDigestRepository: DailyDigestRepository
         private set
 
+    lateinit var backupRepository: BackupRepository
+        private set
+
+    lateinit var backupReminderRebuilder: BackupReminderRebuilder
+        private set
+
     lateinit var taskReminderScheduler: TaskReminderScheduler
         private set
 
@@ -59,10 +68,21 @@ class JimuApp : Application() {
         habitRepository = HabitRepository(database.habitDao())
         goalRepository = GoalRepository(database.goalDao())
         reviewRepository = ReviewRepository(database.reviewDao())
+        backupRepository = BackupRepository(
+            transactionRunner = RoomBackupTransactionRunner(database),
+            taskDao = database.taskDao(),
+            habitDao = database.habitDao(),
+            goalDao = database.goalDao(),
+            reviewDao = database.reviewDao()
+        )
         dailyDigestRepository = DailyDigestRepository(
             taskRepository = taskRepository,
             habitRepository = habitRepository,
             goalRepository = goalRepository
+        )
+        backupReminderRebuilder = BackupReminderRebuilder(
+            taskRepository = taskRepository,
+            reminderController = taskReminderScheduler
         )
 
         restoreFutureTaskRemindersAsync()
@@ -77,7 +97,12 @@ class JimuApp : Application() {
     suspend fun restoreFutureTaskReminders() {
         withContext(Dispatchers.IO) {
             val tasks = taskRepository.getFutureReminderTasks(System.currentTimeMillis())
-            tasks.forEach(taskReminderScheduler::schedule)
+            tasks.forEach { task ->
+                taskReminderScheduler.schedule(
+                    task = task,
+                    mayRequestExactAlarmPermission = false
+                )
+            }
         }
     }
 }

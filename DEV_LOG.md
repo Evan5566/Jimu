@@ -1515,7 +1515,6 @@ Debug 构建：
 ```text
 BUILD SUCCESSFUL
 ```
-
 ### 实机验证结论
 
 用户已在真实手机验证通过：
@@ -1670,3 +1669,183 @@ Debug 构建：
 ```text
 BUILD SUCCESSFUL
 ```
+
+## 2026-06-18 - 本地 JSON 备份恢复 MVP 实现与验收检查
+
+### 任务范围
+
+按 `docs/superpowers/plans/2026-06-18-data-backup-restore-mvp.md` 实现本地离线 JSON 导出/导入 MVP：
+
+- 使用独立 V1 DTO 固定长期备份格式，不直接序列化 Room Entity。
+- 导入前执行受限流读取、JSON 解码、结构与关系校验。
+- 恢复前强制保存当前数据保险备份。
+- 在单个 Room 事务中全量替换数据，恢复插入统一使用 `ABORT`。
+- 数据库恢复成功后取消旧待办提醒，并为恢复后的未来未完成待办重建提醒。
+- 首页设置按钮接入二级设置页，设置页承载版本信息、导出、导入、风险提示、预览和结果状态。
+- 不修改 Room version，不处理 R10 唯一约束、索引、去重或 migration。
+
+### 主要修改
+
+- 新增 `app/src/main/java/com/jimu/app/data/backup/`：
+  - `BackupModels.kt`
+  - `BackupStreamIo.kt`
+  - `BackupJsonCodec.kt`
+  - `BackupValidator.kt`
+  - `BackupTransactionRunner.kt`
+  - `BackupRepository.kt`
+  - `BackupReminderRebuilder.kt`
+- 新增 `TaskReminderController`，`TaskReminderScheduler` 实现该接口；接口默认不请求精确闹钟权限。
+- 为 Task/Habit/Goal/Review DAO 增加稳定排序的全量备份查询、恢复清空和 `ABORT` 批量插入。
+- `JimuApp` 初始化 `BackupRepository` 与 `BackupReminderRebuilder`。
+- 新增 `SettingsViewModel`、`SettingsViewModelFactory` 和 `SettingsScreen`。
+- 新增 `Settings` 路由；首页设置按钮进入设置页，设置页隐藏底部导航并支持返回。
+- 设置页导入预览显示备份时间及各类数据数量。
+- `app/build.gradle.kts` 仅为 JVM 测试增加 `org.json:json:20240303`。
+- 补齐受 DAO 接口变化影响的既有 fake DAO 测试实现。
+
+### 测试覆盖
+
+- JVM：
+  - JSON V1 编解码、null、非法 JSON、缺失/未知版本。
+  - 包名、主键唯一性、关系完整性、必填标题、日期和复盘类型校验。
+  - 10 MiB 精确边界、超限 1 byte、未知声明大小、非法 UTF-8 和写入失败。
+  - 事务导出、预览、全量恢复和 fake 事务回滚。
+  - 提醒取消/重排顺序与逐项失败汇总。
+  - 设置页导出、导入、取消、非法编码、保险备份和部分成功状态。
+- Android 仪器测试源码：
+  - Android `org.json` V1 往返。
+  - 真实 Room 插入失败事务回滚。
+  - 恢复显式 ID 后 SQLite 自增序列继续递增。
+
+### TDD 补漏
+
+计划对照检查发现 `TaskReminderController.schedule()` 缺少计划要求的默认参数。先新增调用 `schedule(task)` 的契约测试，目标测试按预期在编译阶段失败：
+
+```text
+No value passed for parameter 'mayRequestExactAlarmPermission'
+```
+
+随后为接口补上 `mayRequestExactAlarmPermission: Boolean = false`，并断言默认值为 `false`，目标测试通过。
+
+同时补齐设置状态机计划中遗漏的回归分支：导出写入成功、导出写入失败、导入选择取消、非法 UTF-8 不进入解码。
+
+### 验证结果
+
+目标测试：
+
+```powershell
+.\gradlew.bat testDebugUnitTest --tests com.jimu.app.data.backup.BackupReminderRebuilderTest --tests com.jimu.app.viewmodel.SettingsViewModelTest --console=plain
+```
+
+结果：
+
+```text
+BUILD SUCCESSFUL
+```
+
+完整 JVM 单测：
+
+```powershell
+.\gradlew.bat testDebugUnitTest --rerun-tasks --console=plain
+```
+
+结果：
+
+```text
+BUILD SUCCESSFUL
+27 suites / 91 tests / 0 failures / 0 errors / 0 skipped
+```
+
+Debug 构建：
+
+```powershell
+.\gradlew.bat assembleDebug --rerun-tasks --console=plain
+```
+
+结果：
+
+```text
+BUILD SUCCESSFUL
+```
+
+仪器测试 APK 编译：
+
+```powershell
+.\gradlew.bat assembleDebugAndroidTest --rerun-tasks --console=plain
+```
+
+结果：
+
+```text
+BUILD SUCCESSFUL
+```
+
+第一次设备端仪器测试（无连接设备）：
+
+```powershell
+.\gradlew.bat connectedDebugAndroidTest --console=plain
+```
+
+结果：
+
+```text
+FAILED
+com.android.builder.testing.api.DeviceException: No connected devices!
+```
+
+根因已通过 `adb devices -l` 确认：当前 ADB 设备列表为空。失败发生在设备选择阶段，不是测试源码编译或测试断言失败。
+
+### 尚未覆盖
+
+- 非法 JSON、超 10 MiB、保险备份写入失败和提醒到点行为未收到逐项真机反馈。
+- R10 的 `habit_records(habitId, recordDate)` 唯一约束、索引、历史去重和 migration 不在本轮范围内，仍保留为数据层风险。
+
+### 真机基本路径验收
+
+用户于 2026-06-18 完成真机实测并反馈“基本上测试已经成功”。按保守口径记录以下基本路径通过：
+
+- 首页进入设置页和基本返回路径可用。
+- 本地 JSON 导出可用。
+- 导入文件能够进入备份预览。
+- 恢复前保险备份流程可用。
+- 数据恢复基本路径成功。
+
+未收到逐项结果的异常文件、超限文件、写入失败、提醒到点和自动化仪器测试不记为已完成。
+
+提交前手机已通过 ADB 连接，再次执行：
+
+```powershell
+.\gradlew.bat connectedDebugAndroidTest --rerun-tasks --console=plain
+```
+
+结果仍未进入测试断言：
+
+```text
+Finished 0 tests on M2011K2C - 14
+INSTALL_FAILED_USER_RESTRICTED: Install canceled by user
+```
+
+小米系统拒绝安装 `app-debug-androidTest.apk`。这是设备侧“通过 USB 安装/安全安装”限制；androidTest APK 本身已成功编译，但 Android JSON 往返、真实 Room 回滚和 SQLite 自增测试仍不能记为设备端通过。
+
+用户开启手机 USB 安装权限后，再次执行同一命令：
+
+```powershell
+.\gradlew.bat connectedDebugAndroidTest --rerun-tasks --console=plain
+```
+
+结果：
+
+```text
+Starting 4 tests on M2011K2C - 14
+Finished 4 tests on M2011K2C - 14
+BUILD SUCCESSFUL
+```
+
+测试报告确认：
+
+- 4 tests。
+- 0 failures / 0 errors / 0 skipped。
+- Android `org.json` V1 往返通过。
+- 真实 Room 插入失败后的事务回滚通过。
+- 恢复显式 ID 后 SQLite 自增序列继续递增通过。
+- 基础 App Context 测试通过。

@@ -23,6 +23,7 @@ import com.jimu.app.ui.habits.HabitsScreen
 import com.jimu.app.ui.home.HomeScreen
 import com.jimu.app.ui.review.ReviewHistoryScreen
 import com.jimu.app.ui.review.ReviewScreen
+import com.jimu.app.ui.settings.SettingsScreen
 import com.jimu.app.ui.tasks.TasksScreen
 
 @Composable
@@ -77,11 +78,13 @@ fun AppNavHost() {
         modifier = Modifier.fillMaxSize(),
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
-            JimuBottomBar(
-                tabs = tabs,
-                currentDestinationRoute = currentDestination?.route,
-                onTabClick = { route -> navigateToTab(route) }
-            )
+            if (currentDestination?.route != Routes.Settings.route) {
+                JimuBottomBar(
+                    tabs = tabs,
+                    currentDestinationRoute = currentDestination?.route,
+                    onTabClick = { route -> navigateToTab(route) }
+                )
+            }
         }
     ) { innerPadding: PaddingValues ->
         NavHost(
@@ -95,6 +98,11 @@ fun AppNavHost() {
                     resetScrollSignal = homeResetScrollSignal,
                     onOpenReview = {
                         navigateToTab(Routes.Review.route)
+                    },
+                    onOpenSettings = {
+                        navController.navigate(Routes.Settings.route) {
+                            launchSingleTop = true
+                        }
                     }
                 )
             }
@@ -116,6 +124,14 @@ fun AppNavHost() {
                             launchSingleTop = true
                         }
                     },
+                    onBack = {
+                        navController.popBackStack()
+                    }
+                )
+            }
+            composable(Routes.Settings.route) {
+                SettingsScreen(
+                    innerPadding = innerPadding,
                     onBack = {
                         navController.popBackStack()
                     }
